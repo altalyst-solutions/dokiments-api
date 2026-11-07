@@ -111,6 +111,34 @@ tasks.withType<Test>().configureEach {
     finalizedBy(tasks.jacocoTestReport)
 }
 
+// --- Tests: fast vs integration ---------------------------------------------
+// `./gradlew test`             unit + architecture tests, no Docker needed (seconds).
+// `./gradlew integrationTest`  tests tagged "integration" (@IntegrationTest), real
+//                              containers via Testcontainers; Docker must be running.
+// `./gradlew check` / `build`  runs both.
+val integrationTag = "integration"
+
+tasks.test {
+    useJUnitPlatform {
+        excludeTags(integrationTag)
+    }
+}
+
+val integrationTest by tasks.registering(Test::class) {
+    description = "Runs integration tests against real infrastructure (Testcontainers)."
+    group = LifecycleBasePlugin.VERIFICATION_GROUP
+    testClassesDirs = sourceSets.test.get().output.classesDirs
+    classpath = sourceSets.test.get().runtimeClasspath
+    useJUnitPlatform {
+        includeTags(integrationTag)
+    }
+    shouldRunAfter(tasks.test)
+}
+
+tasks.check {
+    dependsOn(integrationTest)
+}
+
 // --- Formatting -------------------------------------------------------------
 // `./gradlew spotlessApply` fixes everything; `spotlessCheck` (part of `check`)
 // fails the build — and CI — on unformatted code.
@@ -144,7 +172,11 @@ jacoco {
 }
 
 tasks.jacocoTestReport {
-    dependsOn(tasks.test)
+    // Combines whichever suites have run (test.exec, integrationTest.exec). Reading the
+    // files rather than the tasks matters: depending on the tasks would make a plain
+    // `./gradlew test` run the integration tests too.
+    executionData.setFrom(fileTree(layout.buildDirectory.dir("jacoco")) { include("*.exec") })
+    mustRunAfter(tasks.test, integrationTest)
     reports {
         xml.required = true // for CI / PR coverage tooling
         html.required = true // for humans

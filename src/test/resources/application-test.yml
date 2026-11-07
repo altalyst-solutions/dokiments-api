@@ -1,0 +1,8 @@
+# Integration tests (see com.dokiments.support.IntegrationTest).
+
+spring:
+  data:
+    redis:
+      # The base config requires REDIS_URL. Tests get Redis from Testcontainers through
+      # @ServiceConnection, which takes precedence over this placeholder value.
+      url: redis://overridden-by-testcontainers:6379

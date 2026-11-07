@@ -1,0 +1,82 @@
+package com.dokiments;
+
+import static org.assertj.core.api.Assertions.assertThat;
+
+import com.dokiments.support.IntegrationTest;
+import org.junit.jupiter.api.BeforeEach;
+import org.junit.jupiter.api.Test;
+import org.junit.jupiter.params.ParameterizedTest;
+import org.junit.jupiter.params.provider.ValueSource;
+import org.springframework.beans.factory.annotation.Autowired;
+import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
+import org.springframework.data.redis.core.StringRedisTemplate;
+import org.springframework.http.HttpHeaders;
+import org.springframework.http.HttpStatus;
+import org.springframework.test.web.servlet.assertj.MockMvcTester;
+
+/**
+ * Smoke test of the running skeleton: it starts against real Redis, reports healthy, exposes only what it should, and
+ * rejects everything else without creating sessions.
+ */
+@IntegrationTest
+@AutoConfigureMockMvc
+class ApplicationIT {
+
+    @Autowired
+    private MockMvcTester mvc;
+
+    @Autowired
+    private StringRedisTemplate redis;
+
+    @BeforeEach
+    void clearRedis() {
+        var connectionFactory = redis.getConnectionFactory();
+        assertThat(connectionFactory).isNotNull();
+        try (var connection = connectionFactory.getConnection()) {
+            connection.serverCommands().flushAll();
+        }
+    }
+
+    @Test
+    void healthIsUpIncludingRedis() {
+        assertThat(mvc.get().uri("/actuator/health"))
+                .hasStatusOk()
+                .bodyJson()
+                .extractingPath("$.status")
+                .isEqualTo("UP");
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"/actuator/health/liveness", "/actuator/health/readiness"})
+    void probesAreUp(String probe) {
+        assertThat(mvc.get().uri(probe))
+                .hasStatusOk()
+                .bodyJson()
+                .extractingPath("$.status")
+                .isEqualTo("UP");
+    }
+
+    @Test
+    void healthHidesComponentDetails() {
+        assertThat(mvc.get().uri("/actuator/health")).bodyJson().doesNotHavePath("$.components");
+    }
+
+    @Test
+    void infoReportsVersionCommitAndJava() {
+        var info = assertThat(mvc.get().uri("/actuator/info")).hasStatusOk().bodyJson();
+
+        info.extractingPath("$.build.version").asString().isNotBlank();
+        info.extractingPath("$.build.commit").asString().isNotBlank();
+        info.extractingPath("$.java.version").asString().startsWith("25");
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"/", "/api/documents", "/api/auth/me", "/actuator/env", "/actuator/beans"})
+    void everythingElseIsUnauthorisedWithoutCreatingASession(String path) {
+        assertThat(mvc.get().uri(path)).hasStatus(HttpStatus.UNAUTHORIZED).doesNotContainHeader(HttpHeaders.SET_COOKIE);
+
+        assertThat(redis.keys("*"))
+                .as("a rejected anonymous request must not leave a session in Redis")
+                .isEmpty();
+    }
+}
