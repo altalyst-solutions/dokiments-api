@@ -1,5 +1,7 @@
 import net.ltgt.gradle.errorprone.CheckSeverity
 import net.ltgt.gradle.errorprone.errorprone
+import org.gradle.api.tasks.testing.logging.TestExceptionFormat
+import org.gradle.api.tasks.testing.logging.TestLogEvent
 import org.springframework.boot.gradle.plugin.SpringBootPlugin
 
 plugins {
@@ -68,6 +70,10 @@ dependencies {
     // Local development: starts compose.yaml services on bootRun
     developmentOnly(libs.spring.boot.docker.compose)
 
+    // Restarts the application automatically when compiled classes change during bootRun.
+    // developmentOnly: never part of the jar, the Docker image or the tests.
+    developmentOnly(libs.spring.boot.devtools)
+
     // Tests
     testImplementation(libs.spring.boot.starter.test)
     testImplementation(libs.spring.boot.starter.webmvc.test)
@@ -114,6 +120,37 @@ tasks.named<JavaCompile>("compileTestJava") {
 tasks.withType<Test>().configureEach {
     useJUnitPlatform()
     finalizedBy(tasks.jacocoTestReport)
+
+    // Print why a test failed (assertion message, causes and a trimmed stack trace)
+    // directly in the terminal, instead of only "FAILED" and a pointer to the HTML report.
+    testLogging {
+        events(TestLogEvent.FAILED, TestLogEvent.SKIPPED)
+        exceptionFormat = TestExceptionFormat.FULL
+        showExceptions = true
+        showCauses = true
+        showStackTraces = true
+    }
+
+    // One summary line per test task, e.g. "integrationTest: 11 passed, 0 failed, 0 skipped".
+    val taskName = name
+    addTestListener(
+        object : TestListener {
+            override fun beforeSuite(suite: TestDescriptor) {}
+
+            override fun beforeTest(testDescriptor: TestDescriptor) {}
+
+            override fun afterTest(testDescriptor: TestDescriptor, result: TestResult) {}
+
+            override fun afterSuite(suite: TestDescriptor, result: TestResult) {
+                if (suite.parent == null) {
+                    println(
+                        "$taskName: ${result.successfulTestCount} passed, ${result.failedTestCount} failed, " +
+                            "${result.skippedTestCount} skipped (${result.resultType})",
+                    )
+                }
+            }
+        },
+    )
 }
 
 // Tests: fast vs integration
