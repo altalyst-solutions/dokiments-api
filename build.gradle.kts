@@ -1,8 +1,13 @@
+import net.ltgt.gradle.errorprone.CheckSeverity
+import net.ltgt.gradle.errorprone.errorprone
 import org.springframework.boot.gradle.plugin.SpringBootPlugin
 
 plugins {
     java
+    jacoco
     alias(libs.plugins.spring.boot)
+    alias(libs.plugins.spotless)
+    alias(libs.plugins.errorprone)
 }
 
 group = "com.dokiments"
@@ -48,6 +53,13 @@ dependencies {
     // --- Configuration metadata for @ConfigurationProperties (IDE autocompletion) ---
     annotationProcessor(libs.spring.boot.configuration.processor)
 
+    // --- Null-safety annotations (@NullMarked, @Nullable), same ones Spring 7 uses ---
+    implementation(libs.jspecify)
+
+    // --- Static analysis at compile time ---
+    errorprone(libs.errorprone.core)
+    errorprone(libs.nullaway)
+
     // --- Local development: starts compose.yaml services on bootRun ---
     developmentOnly(libs.spring.boot.docker.compose)
 
@@ -67,10 +79,76 @@ tasks.withType<JavaCompile>().configureEach {
     options.encoding = "UTF-8"
     // Keep method parameter names in bytecode (Spring uses them for binding).
     options.compilerArgs.add("-parameters")
+
+    options.errorprone {
+        // Generated sources (annotation processors, later MapStruct) are not ours to fix.
+        disableWarningsInGeneratedCode = true
+        excludedPaths = ".*/build/generated/.*"
+    }
+}
+
+// NullAway: production code only. Every package under com.dokiments is treated as
+// non-null by default; anything that may be null must say so with @Nullable.
+// Violations fail the build.
+tasks.named<JavaCompile>("compileJava") {
+    options.errorprone {
+        check("NullAway", CheckSeverity.ERROR)
+        option("NullAway:AnnotatedPackages", "com.dokiments")
+        option("NullAway:JSpecifyMode", "true")
+    }
+}
+
+// Tests juggle mocks and deliberately-invalid input, where null checks are noise.
+// Error Prone's other checks still run on them.
+tasks.named<JavaCompile>("compileTestJava") {
+    options.errorprone {
+        check("NullAway", CheckSeverity.OFF)
+    }
 }
 
 tasks.withType<Test>().configureEach {
     useJUnitPlatform()
+    finalizedBy(tasks.jacocoTestReport)
+}
+
+// --- Formatting -------------------------------------------------------------
+// `./gradlew spotlessApply` fixes everything; `spotlessCheck` (part of `check`)
+// fails the build — and CI — on unformatted code.
+spotless {
+    java {
+        target("src/**/*.java")
+        palantirJavaFormat(libs.versions.palantir.java.format.get()).formatJavadoc(true)
+        removeUnusedImports()
+        formatAnnotations()
+        trimTrailingWhitespace()
+        endWithNewline()
+    }
+    kotlinGradle {
+        target("*.gradle.kts")
+        ktlint()
+    }
+    format("misc") {
+        target("*.md", ".gitignore", ".gitattributes", ".editorconfig", "**/*.yml", "**/*.yaml", "gradle/*.toml")
+        targetExclude("build/**", ".gradle/**")
+        trimTrailingWhitespace()
+        leadingTabsToSpaces()
+        endWithNewline()
+    }
+}
+
+// --- Coverage ---------------------------------------------------------------
+// Report only for now (build/reports/jacoco); a minimum threshold comes once
+// there is real code to cover.
+jacoco {
+    toolVersion = libs.versions.jacoco.get()
+}
+
+tasks.jacocoTestReport {
+    dependsOn(tasks.test)
+    reports {
+        xml.required = true // for CI / PR coverage tooling
+        html.required = true // for humans
+    }
 }
 
 springBoot {
