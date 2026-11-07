@@ -1,0 +1,79 @@
+# Local development services.
+#
+# `./gradlew bootRun` starts the default services (Redis and the Firestore emulator)
+# automatically through Spring Boot's Docker Compose support, connects to them, and stops
+# them when the application stops. Nothing needs to be started by hand.
+#
+# To run the API itself as a container too, the way it runs when deployed:
+#   docker compose --profile full up --build
+#
+# Image tags must stay in line with src/test/java/com/dokiments/support/TestImages.java,
+# so that local development and integration tests use the same versions.
+
+name: dokiments-api
+
+services:
+  redis:
+    image: redis:8.10-alpine
+    # Only the container port is listed, so Docker picks a free host port. Spring Boot
+    # reads the actual port when it connects, and nothing clashes with other projects
+    # that already use 6379.
+    ports:
+      - "6379"
+    healthcheck:
+      test: ["CMD", "redis-cli", "ping"]
+      interval: 5s
+      timeout: 3s
+      retries: 10
+
+  firestore:
+    image: gcr.io/google.com/cloudsdktool/google-cloud-cli:592.0.0-emulators
+    # A "demo-" project ID can never match a real Firebase project, so nothing written
+    # here can reach Google.
+    command: >-
+      gcloud emulators firestore start
+      --host-port=0.0.0.0:8080
+      --project=demo-dokiments
+    # A fixed host port, because the application will be pointed at it with
+    # FIRESTORE_EMULATOR_HOST=localhost:8085. Spring Boot has no built-in support for the
+    # Firestore emulator, so it can't discover a random port the way it does for Redis.
+    ports:
+      - "8085:8080"
+    labels:
+      # Spring Boot would otherwise log that it found a service it doesn't recognise.
+      org.springframework.boot.ignore: "true"
+    healthcheck:
+      test: ["CMD", "curl", "-fsS", "http://localhost:8080/"]
+      interval: 5s
+      timeout: 3s
+      retries: 20
+
+  # Only started with `--profile full`. Built from the local Dockerfile and run with the
+  # production profile, which makes it a close copy of a real deployment.
+  api:
+    profiles: ["full"]
+    build:
+      context: .
+      secrets:
+        - extra_ca
+    environment:
+      REDIS_URL: redis://redis:6379
+    ports:
+      - "${API_PORT:-8080}:8080"
+    depends_on:
+      redis:
+        condition: service_healthy
+      firestore:
+        condition: service_healthy
+
+secrets:
+  # Optional root CA certificate for networks with a TLS-inspecting proxy (see the
+  # Dockerfile). Set EXTRA_CA_PEM to the certificate's contents, for example
+  #   EXTRA_CA_PEM="$(cat /path/to/proxy-root-ca.pem)" docker compose --profile full up --build
+  # When it isn't set, the secret is empty and the build skips that step.
+  #
+  # The contents are passed rather than a file path on purpose: Compose builds through
+  # Docker Bake, which refuses to read files outside the project without an extra
+  # permission flag, and that would break the build on every machine.
+  extra_ca:
+    environment: EXTRA_CA_PEM

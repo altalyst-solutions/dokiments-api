@@ -29,7 +29,8 @@ memory for names: check the jars in the Gradle cache or the official docs before
 | Integration tests (needs Docker) | `./gradlew integrationTest` |
 | Everything: format check, compile checks, both test suites, coverage | `./gradlew build` |
 | Fix formatting | `./gradlew spotlessApply` |
-| Run locally (`dev` profile) | `./gradlew bootRun` |
+| Run locally (`dev` profile; starts Redis and the Firestore emulator from `compose.yaml`) | `./gradlew bootRun` |
+| Run the API as a container with its services | `docker compose --profile full up --build` |
 | Build the image | `docker build -t dokiments-api .` |
 
 Run `./gradlew spotlessApply` and then `./gradlew build` before saying a change is done.
