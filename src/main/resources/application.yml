@@ -1,0 +1,70 @@
+# Base configuration, shared by every environment.
+#
+# These defaults are production-safe: running without a profile must never be
+# less secure than running with `prod`. Developer conveniences live in
+# application-dev.yml. Everything environment-specific comes from environment
+# variables (12-factor), so the same image runs on any platform.
+
+spring:
+  application:
+    name: dokiments-api
+  threads:
+    virtual:
+      # Blocking I/O (Firestore, Firebase Auth, Resend) on virtual threads.
+      enabled: true
+  lifecycle:
+    # Upper bound for in-flight requests to finish on shutdown (Cloud Run sends
+    # SIGTERM and allows 10 s by default; Docker 10 s).
+    timeout-per-shutdown-phase: 9s
+  autoconfigure:
+    exclude:
+      # No in-memory user / generated password: authentication is Firebase-backed.
+      - org.springframework.boot.security.autoconfigure.UserDetailsServiceAutoConfiguration
+  data:
+    redis:
+      # Required. Any Redis provider, e.g. redis://user:pass@host:6379 or rediss:// for TLS.
+      url: ${REDIS_URL}
+  session:
+    data:
+      redis:
+        # Keeps session keys grouped and apart from anything else in the same Redis.
+        namespace: dokiments:session
+
+server:
+  port: ${PORT:8080}
+  shutdown: graceful
+  # Behind Next.js and the platform's load balancer: trust X-Forwarded-* so
+  # redirects, cookies and client IPs use the original scheme/host.
+  forward-headers-strategy: framework
+  error:
+    # Never leak internals in error responses.
+    include-stacktrace: never
+    include-message: never
+    include-binding-errors: never
+    include-exception: false
+    whitelabel:
+      enabled: false
+
+management:
+  endpoints:
+    web:
+      exposure:
+        include: health, info
+  endpoint:
+    health:
+      # Adds /actuator/health/liveness and /actuator/health/readiness.
+      probes:
+        enabled: true
+      show-details: never
+  info:
+    java:
+      enabled: true
+    env:
+      enabled: false
+
+logging:
+  structured:
+    format:
+      # One JSON object per line on stdout (Elastic Common Schema), readable by
+      # any log platform.
+      console: ecs

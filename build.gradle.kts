@@ -152,9 +152,21 @@ tasks.jacocoTestReport {
 }
 
 springBoot {
-    // Writes META-INF/build-info.properties, which Actuator's /actuator/info exposes
-    // (version, build time). The Git commit is added in a later step.
-    buildInfo()
+    // Writes META-INF/build-info.properties, which /actuator/info exposes as
+    // `build.version`, `build.time` and `build.commit`.
+    buildInfo {
+        properties {
+            additional = mapOf("commit" to gitCommit())
+        }
+    }
+}
+
+// `./gradlew bootRun` is local development: use the `dev` profile unless one is set
+// explicitly (SPRING_PROFILES_ACTIVE). Deployed containers set their own profile.
+tasks.bootRun {
+    if (System.getenv("SPRING_PROFILES_ACTIVE").isNullOrBlank()) {
+        systemProperty("spring.profiles.active", "dev")
+    }
 }
 
 /**
@@ -181,4 +193,20 @@ fun versionFromGit(): String {
             describe.standardOutput.asText.get().trim().removePrefix("v").ifBlank { null }
         }
     }.getOrNull() ?: "0.0.0-SNAPSHOT"
+}
+
+/** Short hash of the commit being built, or `unknown` outside a Git checkout. */
+fun gitCommit(): String {
+    val revParse = providers.exec {
+        commandLine("git", "rev-parse", "--short=12", "HEAD")
+        isIgnoreExitValue = true
+    }
+
+    return runCatching {
+        if (revParse.result.get().exitValue != 0) {
+            null
+        } else {
+            revParse.standardOutput.asText.get().trim().ifBlank { null }
+        }
+    }.getOrNull() ?: "unknown"
 }

@@ -1,0 +1,7 @@
+# Production. The base application.yml is already production-safe; this file
+# only holds settings that must differ from local development.
+
+logging:
+  level:
+    root: info
+    com.dokiments: info

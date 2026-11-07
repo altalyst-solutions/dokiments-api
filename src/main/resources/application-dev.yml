@@ -1,0 +1,21 @@
+# Local development (`./gradlew bootRun` activates this profile).
+
+spring:
+  data:
+    redis:
+      # Local Redis from compose.yaml unless REDIS_URL says otherwise.
+      url: ${REDIS_URL:redis://localhost:6379}
+
+management:
+  endpoint:
+    health:
+      # Show which dependency is down while developing.
+      show-details: always
+
+logging:
+  structured:
+    format:
+      # Plain, human-readable logs locally.
+      console: ""
+  level:
+    com.dokiments: debug
