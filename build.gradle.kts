@@ -11,7 +11,12 @@ plugins {
 }
 
 group = "com.dokiments"
-version = versionFromGit()
+
+// Version and commit normally come from Git. Builds without a .git directory, such as
+// the Docker build, pass them in instead with `-PappVersion=...` and `-PgitCommit=...`
+// (see the Dockerfile). A blank value falls back to Git.
+version = providers.gradleProperty("appVersion").orNull?.ifBlank { null } ?: versionFromGit()
+val buildCommit = providers.gradleProperty("gitCommit").orNull?.ifBlank { null } ?: gitCommit()
 
 java {
     toolchain {
@@ -32,38 +37,38 @@ dependencies {
     developmentOnly(platform(SpringBootPlugin.BOM_COORDINATES))
     testImplementation(platform(libs.spring.modulith.bom))
 
-    // --- Web / API ---
+    // Web / API
     implementation(libs.spring.boot.starter.webmvc)
     implementation(libs.spring.boot.starter.validation)
 
-    // --- Security & sessions ---
+    // Security & sessions
     implementation(libs.spring.boot.starter.security)
     implementation(libs.spring.boot.starter.data.redis)
     implementation(libs.spring.boot.starter.session.data.redis)
 
-    // --- Operations ---
+    // Operations
     implementation(libs.spring.boot.starter.actuator)
 
-    // --- Architecture ---
+    // Architecture
     implementation(libs.spring.modulith.starter.core)
 
-    // --- Firestore / Firebase ---
+    // Firestore / Firebase
     implementation(libs.firebase.admin)
 
-    // --- Configuration metadata for @ConfigurationProperties (IDE autocompletion) ---
+    // Configuration metadata for @ConfigurationProperties (IDE autocompletion)
     annotationProcessor(libs.spring.boot.configuration.processor)
 
-    // --- Null-safety annotations (@NullMarked, @Nullable), same ones Spring 7 uses ---
+    // Null-safety annotations (@NullMarked, @Nullable), same ones Spring 7 uses
     implementation(libs.jspecify)
 
-    // --- Static analysis at compile time ---
+    // Static analysis at compile time
     errorprone(libs.errorprone.core)
     errorprone(libs.nullaway)
 
-    // --- Local development: starts compose.yaml services on bootRun ---
+    // Local development: starts compose.yaml services on bootRun
     developmentOnly(libs.spring.boot.docker.compose)
 
-    // --- Tests ---
+    // Tests
     testImplementation(libs.spring.boot.starter.test)
     testImplementation(libs.spring.boot.starter.webmvc.test)
     testImplementation(libs.spring.boot.starter.security.test)
@@ -111,7 +116,7 @@ tasks.withType<Test>().configureEach {
     finalizedBy(tasks.jacocoTestReport)
 }
 
-// --- Tests: fast vs integration ---------------------------------------------
+// Tests: fast vs integration
 // `./gradlew test`             unit + architecture tests, no Docker needed (seconds).
 // `./gradlew integrationTest`  tests tagged "integration" (@IntegrationTest), real
 //                              containers via Testcontainers; Docker must be running.
@@ -139,9 +144,9 @@ tasks.check {
     dependsOn(integrationTest)
 }
 
-// --- Formatting -------------------------------------------------------------
+// Formatting
 // `./gradlew spotlessApply` fixes everything; `spotlessCheck` (part of `check`)
-// fails the build — and CI — on unformatted code.
+// fails the build, and therefore CI, on unformatted code.
 spotless {
     java {
         target("src/**/*.java")
@@ -164,7 +169,7 @@ spotless {
     }
 }
 
-// --- Coverage ---------------------------------------------------------------
+// Coverage
 // Report only for now (build/reports/jacoco); a minimum threshold comes once
 // there is real code to cover.
 jacoco {
@@ -188,7 +193,7 @@ springBoot {
     // `build.version`, `build.time` and `build.commit`.
     buildInfo {
         properties {
-            additional = mapOf("commit" to gitCommit())
+            additional = mapOf("commit" to buildCommit)
         }
     }
 }
@@ -205,10 +210,10 @@ tasks.bootRun {
  * Derives the project version from the latest `v*` Git tag, so no version number is
  * ever committed:
  *
- * - on a release tag `v1.4.0`              → `1.4.0`
- * - 5 commits after it                      → `1.4.0-5-gabc1234`
- * - with uncommitted changes                → `…-dirty`
- * - no tag yet / no Git (e.g. source zip)   → `0.0.0-SNAPSHOT`
+ * - on a release tag `v1.4.0`, the version is `1.4.0`
+ * - 5 commits after it, it is `1.4.0-5-gabc1234`
+ * - with uncommitted changes, `-dirty` is appended
+ * - with no tag yet, or no Git at all (e.g. a source zip), it is `0.0.0-SNAPSHOT`
  *
  * CI must check out the full history (`fetch-depth: 0`), or tags are missing.
  */
