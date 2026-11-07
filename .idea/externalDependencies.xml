@@ -1,0 +1,10 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- IntelliJ IDEA asks to install these plugins when the project is opened.
+     palantir-java-format makes "Reformat Code" match Spotless exactly.
+     Spotless Applier runs `spotlessApply` from the IDE. -->
+<project version="4">
+  <component name="ExternalDependencies">
+    <plugin id="palantir-java-format" />
+    <plugin id="com.github.lipiridi.spotless-applier" />
+  </component>
+</project>
