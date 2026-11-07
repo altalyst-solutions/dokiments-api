@@ -20,8 +20,8 @@ import org.testcontainers.junit.jupiter.Testcontainers;
  * Proves the Firestore emulator setup works with the Google Cloud Firestore client that ships with the Firebase Admin
  * SDK, before any persistence adapter relies on it.
  *
- * <p>Uses the client directly: the application's own Firestore configuration arrives with the platform layer, at which
- * point the emulator moves into {@link TestcontainersConfiguration}.
+ * <p>Uses the client directly, because the application doesn't configure Firestore yet. Once it does, the emulator
+ * moves into {@link TestcontainersConfiguration}.
  */
 @Testcontainers
 @Tag(IntegrationTest.TAG)

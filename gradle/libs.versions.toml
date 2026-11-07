@@ -10,7 +10,7 @@ spring-modulith = "2.1.2"
 firebase-admin = "9.11.0"
 archunit = "1.5.1"
 
-# --- Code quality tooling ---
+# Code quality tooling
 spotless = "8.11.0"
 palantir-java-format = "2.103.0"
 errorprone-plugin = "5.2.0"
@@ -19,10 +19,10 @@ nullaway = "0.14.3"
 jacoco = "0.8.16"
 
 [libraries]
-# --- BOMs ---
+# BOMs
 spring-modulith-bom = { module = "org.springframework.modulith:spring-modulith-bom", version.ref = "spring-modulith" }
 
-# --- Spring Boot starters (versions from the Boot BOM) ---
+# Spring Boot starters (versions from the Boot BOM)
 spring-boot-starter-webmvc = { module = "org.springframework.boot:spring-boot-starter-webmvc" }
 spring-boot-starter-validation = { module = "org.springframework.boot:spring-boot-starter-validation" }
 spring-boot-starter-security = { module = "org.springframework.boot:spring-boot-starter-security" }
@@ -32,14 +32,14 @@ spring-boot-starter-session-data-redis = { module = "org.springframework.boot:sp
 spring-boot-docker-compose = { module = "org.springframework.boot:spring-boot-docker-compose" }
 spring-boot-configuration-processor = { module = "org.springframework.boot:spring-boot-configuration-processor" }
 
-# --- Spring Modulith (versions from the Modulith BOM) ---
+# Spring Modulith (versions from the Modulith BOM)
 spring-modulith-starter-core = { module = "org.springframework.modulith:spring-modulith-starter-core" }
 spring-modulith-starter-test = { module = "org.springframework.modulith:spring-modulith-starter-test" }
 
-# --- Google / Firebase ---
+# Google / Firebase
 firebase-admin = { module = "com.google.firebase:firebase-admin", version.ref = "firebase-admin" }
 
-# --- Testing ---
+# Testing
 spring-boot-starter-test = { module = "org.springframework.boot:spring-boot-starter-test" }
 spring-boot-starter-webmvc-test = { module = "org.springframework.boot:spring-boot-starter-webmvc-test" }
 spring-boot-starter-security-test = { module = "org.springframework.boot:spring-boot-starter-security-test" }
@@ -49,7 +49,7 @@ testcontainers-gcloud = { module = "org.testcontainers:testcontainers-gcloud" }
 junit-platform-launcher = { module = "org.junit.platform:junit-platform-launcher" }
 archunit-junit5 = { module = "com.tngtech.archunit:archunit-junit5", version.ref = "archunit" }
 
-# --- Code quality (compile-time only) ---
+# Code quality (compile-time only)
 jspecify = { module = "org.jspecify:jspecify" }
 errorprone-core = { module = "com.google.errorprone:error_prone_core", version.ref = "errorprone" }
 nullaway = { module = "com.uber.nullaway:nullaway", version.ref = "nullaway" }

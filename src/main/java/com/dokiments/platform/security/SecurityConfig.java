@@ -9,7 +9,7 @@ import org.springframework.security.web.SecurityFilterChain;
 import org.springframework.security.web.authentication.HttpStatusEntryPoint;
 
 /**
- * Deny-by-default security until authentication arrives (Phase 4).
+ * Deny-by-default security, until authentication is implemented.
  *
  * <p>Only the health and info endpoints are public, so container platforms can probe the service. Every other request
  * is answered with {@code 401}, which means nothing becomes reachable by accident while the API is being built.
