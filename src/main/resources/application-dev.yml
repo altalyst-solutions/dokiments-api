@@ -1,6 +1,18 @@
 # Local development (`./gradlew bootRun` activates this profile).
 
 spring:
+  main:
+    # Spring Boot hides the banner whenever structured logging is configured, which the
+    # base application.yml does for production. Locally the logs are plain text, so the
+    # banner is safe to show again.
+    banner-mode: console
+  output:
+    ansi:
+      # Coloured log levels and logger names. Spring Boot only colours output when it
+      # detects a terminal, and output that goes through Gradle (bootRun) doesn't count
+      # as one, so it has to be forced here. Never in production, where the escape codes
+      # would end up inside the JSON logs.
+      enabled: always
   data:
     redis:
       # Local Redis from compose.yaml unless REDIS_URL says otherwise.
@@ -19,3 +31,7 @@ logging:
       console: ""
   level:
     com.dokiments: debug
+    # The Redis client looks for an optional macOS-native DNS library and warns on every
+    # start when it isn't there. It falls back to the standard Java resolver, which works
+    # fine, and the warning never appears in the Linux containers we deploy.
+    io.netty.resolver.dns.DnsServerAddressStreamProviders: error
