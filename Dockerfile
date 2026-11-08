@@ -13,10 +13,12 @@
 # never ends up in an image layer:
 #   --secret id=extra_ca,src=/path/to/proxy-root-ca.pem
 
-ARG JAVA_IMAGE_TAG=25.0.5_8
+# The JDK (build) and JRE (runtime) tags are written out in full rather than through a
+# shared ARG, because Dependabot can only update tags it can read directly. Keep both on
+# the same Java version.
 
 # Stage 1, build: compile and package the Spring Boot jar.
-FROM eclipse-temurin:${JAVA_IMAGE_TAG}-jdk-noble AS build
+FROM eclipse-temurin:25.0.5_8-jdk-noble AS build
 WORKDIR /workspace
 
 # Gradle wrapper and build scripts first: this layer, and the dependency cache below,
@@ -50,7 +52,7 @@ RUN --mount=type=cache,target=/root/.gradle \
 RUN java -Djarmode=tools -jar app.jar extract --layers --launcher --destination /workspace/extracted
 
 # Stage 2, runtime: JRE only, non-root, no build tools.
-FROM eclipse-temurin:${JAVA_IMAGE_TAG}-jre-noble AS runtime
+FROM eclipse-temurin:25.0.5_8-jre-noble AS runtime
 
 ARG APP_VERSION=""
 ARG GIT_COMMIT=""
