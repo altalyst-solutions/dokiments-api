@@ -35,6 +35,18 @@ dependencies {
     // no dependency-management plugin needed) and Spring Modulith's BOM.
     implementation(platform(SpringBootPlugin.BOM_COORDINATES))
     implementation(platform(libs.spring.modulith.bom))
+
+    // Security overrides (versions in gradle/libs.versions.toml). Gradle uses the highest version
+    // any BOM or constraint asks for, so these win over the vulnerable versions selected by the
+    // Spring Boot BOM (OpenTelemetry, CVE-2026-118259) and the Firebase and Google libraries
+    // (Guava, CVE-2026-102554).
+    // OpenTelemetry is imported as a BOM so all its modules move together.
+    implementation(platform(libs.opentelemetry.bom))
+    constraints {
+        implementation(libs.guava) {
+            because("CVE-2026-102554: denial of service in versions before 33.7.2")
+        }
+    }
     annotationProcessor(platform(SpringBootPlugin.BOM_COORDINATES))
     developmentOnly(platform(SpringBootPlugin.BOM_COORDINATES))
     testImplementation(platform(libs.spring.modulith.bom))

@@ -60,6 +60,20 @@ LABEL org.opencontainers.image.title="dokiments-api" \
       org.opencontainers.image.version="${APP_VERSION}" \
       org.opencontainers.image.revision="${GIT_COMMIT}"
 
+# Install the Ubuntu security updates published since the base image was built. The
+# Temurin images are only rebuilt every few weeks, so without this the image ships OS
+# packages with known, already-fixed vulnerabilities. Only the runtime stage needs it: the
+# build stage is never shipped. The package lists are removed afterwards to keep the image
+# small.
+#
+# Docker caches this step like any other, so it would keep the updates from the first build
+# forever. CI passes today's date as SECURITY_UPDATES_DATE: a new value invalidates the
+# cache, so the updates are fetched again at most once a day. Local builds leave it empty.
+ARG SECURITY_UPDATES_DATE=""
+RUN apt-get update \
+    && DEBIAN_FRONTEND=noninteractive apt-get upgrade -y --no-install-recommends \
+    && rm -rf /var/lib/apt/lists/*
+
 RUN groupadd --system --gid 10001 app \
     && useradd --system --uid 10001 --gid app --no-create-home --shell /usr/sbin/nologin app
 
