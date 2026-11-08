@@ -173,12 +173,18 @@ jobs:
       # security-scan.yml runs the same scan weekly: keep the version and options in line.
       - name: Scan image for vulnerabilities
         run: |
+          # Run as the runner user, not root, so the downloaded database belongs to it and the
+          # cache step can save it at the end of the job. --group-add keeps access to the Docker
+          # socket, which Trivy needs to read the image.
           mkdir -p "$HOME/.cache/trivy"
           docker run --rm \
+            --user "$(id -u):$(id -g)" \
+            --group-add "$(stat -c %g /var/run/docker.sock)" \
             -v /var/run/docker.sock:/var/run/docker.sock \
-            -v "$HOME/.cache/trivy:/root/.cache/trivy" \
+            -v "$HOME/.cache/trivy:/cache" \
             -v "$PWD/.trivyignore:/.trivyignore:ro" \
             aquasec/trivy:0.76.2 image \
+              --cache-dir /cache \
               --scanners vuln \
               --severity HIGH,CRITICAL \
               --ignore-unfixed \
