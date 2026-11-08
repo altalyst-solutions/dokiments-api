@@ -136,6 +136,9 @@ Rules, enforced by `HexagonalArchitectureTest` (ArchUnit) and `ModularityTest` (
   declared without a version.
 - Add a dependency only when code uses it, and check the latest stable version on Maven Central rather than guessing.
   Don't use milestones or release candidates.
+- When a vulnerable version arrives through another dependency or a BOM, override it under "Security overrides" in
+  `gradle/libs.versions.toml` and `build.gradle.kts`, with the vulnerability ID and a note to remove it once the BOM
+  catches up. Add to `.trivyignore` only with a reason and a review date.
 
 ## Git and versioning
 
@@ -149,4 +152,6 @@ Rules, enforced by `HexagonalArchitectureTest` (ArchUnit) and `ModularityTest` (
   - Scopes: a module name (`auth`, `sharing`, ...) or `platform`, `architecture`, `build`, `ci`, `docker`, `deps`.
   - Mark breaking changes with `!`, for example `feat(sharing)!: ...`.
 - The pull request title follows the same format and becomes the merge commit title.
+- Pull request descriptions follow `.github/pull_request_template.md`. Fill in every section, including the impact on
+  the API contract, Firestore data, configuration and security, and remove the options that don't apply.
 - The version comes from Git tags (`vX.Y.Z`, SemVer). Never write a version number into the build files.
