@@ -53,6 +53,13 @@ updates:
     groups:
       temurin:
         patterns: ["eclipse-temurin"]
+    # The project stays on a long-term-support Java release (currently 25). A new major
+    # version such as 26 is often a short-lived, non-LTS release, and moving to the next LTS
+    # also means changing the Gradle toolchain, so it is done by hand. Dependabot still
+    # brings in the patch updates of the current version.
+    ignore:
+      - dependency-name: "eclipse-temurin"
+        update-types: ["version-update:semver-major"]
 
   # Redis and Firestore emulator images in compose.yaml.
   - package-ecosystem: docker-compose
