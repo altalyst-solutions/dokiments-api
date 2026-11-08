@@ -1,0 +1,190 @@
+# Runs on every pull request to main and on every push to main. The weekly vulnerability
+# re-check of main lives in security-scan.yml.
+
+name: CI
+
+on:
+  pull_request:
+    branches: [main]
+  push:
+    branches: [main]
+
+concurrency:
+  group: ci-${{ github.ref }}
+  cancel-in-progress: true
+
+# Read-only by default. No job here needs to write to the repository.
+permissions:
+  contents: read
+
+jobs:
+  commit-messages:
+    name: Commit messages
+    if: github.event_name == 'pull_request'
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          fetch-depth: 0
+
+      # Merge commits keep every branch commit on main, so every commit has to follow
+      # Conventional Commits, not just the pull request title. The title is checked too,
+      # because it becomes the merge commit's title.
+      #
+      # Accepted: `<type>(<optional scope>)<optional !>: <description>`, plus the
+      # `Revert "..."` messages that `git revert` writes. Merge commits (for example from
+      # updating the branch with main) are skipped. fixup! and squash! commits fail on
+      # purpose: squash them with `git rebase -i --autosquash main` before merging.
+      - name: Check commit messages and pull request title
+        env:
+          # Passed through the environment rather than inlined in the script, so that a
+          # title containing shell syntax can't be executed.
+          PR_TITLE: ${{ github.event.pull_request.title }}
+          BASE_SHA: ${{ github.event.pull_request.base.sha }}
+          HEAD_SHA: ${{ github.event.pull_request.head.sha }}
+        run: |
+          set -euo pipefail
+          pattern='^(feat|fix|perf|refactor|test|docs|build|ci|chore|style|revert)(\([a-z0-9][a-z0-9-]*\))?!?: [^ ].*$'
+          revert='^Revert ".+"$'
+          failed=0
+
+          check() {
+            local label="$1" message="$2"
+            if [[ "$message" =~ $pattern || "$message" =~ $revert ]]; then
+              echo "ok      $label: $message"
+            else
+              echo "::error::$label doesn't follow Conventional Commits: $message"
+              failed=1
+            fi
+          }
+
+          check "PR title" "$PR_TITLE"
+
+          while IFS= read -r line; do
+            check "commit ${line%% *}" "${line#* }"
+          done < <(git log --no-merges --format='%h %s' "$BASE_SHA..$HEAD_SHA")
+
+          if [[ "$failed" -ne 0 ]]; then
+            echo
+            echo "Expected '<type>(<scope>): <description>', for example 'feat(newsletter): add subscribe endpoint'."
+            echo "Types: feat, fix, perf, refactor, test, docs, build, ci, chore, style, revert."
+            echo "Fix commit messages with 'git rebase -i main' (reword), then force-push the branch."
+            exit 1
+          fi
+
+  build:
+    name: Build and test
+    runs-on: ubuntu-latest
+    outputs:
+      version: ${{ steps.version.outputs.version }}
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+        with:
+          # The version comes from Git tags (`git describe`), which a shallow clone lacks.
+          fetch-depth: 0
+
+      - name: Set up Java
+        uses: actions/setup-java@v6
+        with:
+          distribution: temurin
+          java-version: "25"
+
+      # Caches Gradle downloads and build outputs between runs, and checks that
+      # gradle-wrapper.jar is an official Gradle release before running it.
+      - name: Set up Gradle
+        uses: gradle/actions/setup-gradle@v6
+
+      # Formatting, Error Prone and NullAway, unit and architecture tests, integration
+      # tests against real Redis and Firestore emulator containers, and coverage. Docker
+      # is available on GitHub's Ubuntu runners, which Testcontainers needs.
+      - name: Build
+        run: ./gradlew build --console=plain
+
+      - name: Work out the version
+        id: version
+        run: echo "version=$(./gradlew -q printVersion)" >> "$GITHUB_OUTPUT"
+
+      # Kept for a week, so a failure can be investigated from the run's summary page.
+      - name: Upload test and coverage reports
+        if: always()
+        uses: actions/upload-artifact@v7
+        with:
+          name: reports
+          path: |
+            build/reports/
+            build/test-results/
+          retention-days: 7
+          if-no-files-found: ignore
+
+  docker:
+    name: Docker image
+    needs: build
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v4
+
+      # Today's date makes the Dockerfile fetch Ubuntu security updates again once a day,
+      # instead of reusing the cached result forever (see SECURITY_UPDATES_DATE there).
+      - name: Work out today's date
+        id: date
+        run: echo "today=$(date -u +%F)" >> "$GITHUB_OUTPUT"
+
+      # Builds the image to prove the Dockerfile still works. Nothing is pushed yet:
+      # publishing and deploying are added together with the hosting setup. The GitHub
+      # Actions cache keeps unchanged layers, such as the dependencies, between runs.
+      # `load` keeps the image in the runner's Docker so the next step can scan it.
+      - name: Build image
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          push: false
+          load: true
+          tags: dokiments-api:ci
+          build-args: |
+            APP_VERSION=${{ needs.build.outputs.version }}
+            GIT_COMMIT=${{ github.sha }}
+            SECURITY_UPDATES_DATE=${{ steps.date.outputs.today }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      # Trivy downloads its vulnerability database on every run. Caching it per day avoids
+      # downloading it again in every job and makes rate limits on the download unlikely.
+      - name: Cache the vulnerability database
+        uses: actions/cache@v6
+        with:
+          path: ~/.cache/trivy
+          key: trivy-db-${{ steps.date.outputs.today }}
+          restore-keys: trivy-db-
+
+      # Fails the job when the image contains a HIGH or CRITICAL vulnerability that already
+      # has a fix: in the OS packages or in any library inside the jar. Vulnerabilities
+      # without a fix don't fail it, because there is nothing to upgrade to yet.
+      # Accepted exceptions go in .trivyignore, with a reason.
+      #
+      # Runs the official Trivy image, pinned to a version, rather than a third-party action.
+      # The scanner version only needs bumping occasionally: the vulnerability data it uses
+      # is downloaded fresh on every run.
+      # security-scan.yml runs the same scan weekly: keep the version and options in line.
+      - name: Scan image for vulnerabilities
+        run: |
+          mkdir -p "$HOME/.cache/trivy"
+          docker run --rm \
+            -v /var/run/docker.sock:/var/run/docker.sock \
+            -v "$HOME/.cache/trivy:/root/.cache/trivy" \
+            -v "$PWD/.trivyignore:/.trivyignore:ro" \
+            aquasec/trivy:0.76.2 image \
+              --scanners vuln \
+              --severity HIGH,CRITICAL \
+              --ignore-unfixed \
+              --ignorefile /.trivyignore \
+              --db-repository ghcr.io/aquasecurity/trivy-db,public.ecr.aws/aquasecurity/trivy-db \
+              --java-db-repository ghcr.io/aquasecurity/trivy-java-db,public.ecr.aws/aquasecurity/trivy-java-db \
+              --exit-code 1 \
+              --no-progress \
+              dokiments-api:ci

@@ -1,0 +1,90 @@
+# Weekly vulnerability re-check of main.
+#
+# New vulnerabilities are published all the time, including for code and images that
+# haven't changed. CI scans the image on every pull request and push, but nothing would
+# notice a vulnerability published after the last merge. This workflow does.
+#
+# It is separate from CI on purpose:
+# - A failure here means "something new was published", not "the code is broken", so it
+#   doesn't turn the CI status of main red.
+# - It can never trigger CI's later publishing and deployment steps.
+# - It only builds and scans the image, without running the whole test suite.
+#
+# Once images are published to a registry, this should scan the image that is actually
+# deployed instead of rebuilding it from main.
+
+name: Security scan
+
+on:
+  schedule:
+    # Mondays at 06:00 UTC.
+    - cron: "0 6 * * 1"
+  # Lets a scan be started by hand from the Actions tab.
+  workflow_dispatch:
+
+# A new run replaces one still in progress: only the latest result matters.
+concurrency:
+  group: security-scan
+  cancel-in-progress: true
+
+permissions:
+  contents: read
+
+jobs:
+  scan:
+    name: Image vulnerability scan
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v7
+
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v4
+
+      # Today's date makes the Dockerfile fetch the latest Ubuntu security updates rather
+      # than reuse cached ones (see SECURITY_UPDATES_DATE in the Dockerfile).
+      - name: Work out today's date
+        id: date
+        run: echo "today=$(date -u +%F)" >> "$GITHUB_OUTPUT"
+
+      # Same build as CI's Docker image job, reusing its layer cache.
+      - name: Build image
+        uses: docker/build-push-action@v7
+        with:
+          context: .
+          push: false
+          load: true
+          tags: dokiments-api:scan
+          build-args: |
+            GIT_COMMIT=${{ github.sha }}
+            SECURITY_UPDATES_DATE=${{ steps.date.outputs.today }}
+          cache-from: type=gha
+          cache-to: type=gha,mode=max
+
+      - name: Cache the vulnerability database
+        uses: actions/cache@v6
+        with:
+          path: ~/.cache/trivy
+          key: trivy-db-${{ steps.date.outputs.today }}
+          restore-keys: trivy-db-
+
+      # Same policy as CI: fail on HIGH or CRITICAL vulnerabilities that already have a fix,
+      # in the Ubuntu packages or any library inside the jar. Keep the Trivy version and the
+      # options in line with the "Scan image for vulnerabilities" step in ci.yml.
+      - name: Scan image for vulnerabilities
+        run: |
+          mkdir -p "$HOME/.cache/trivy"
+          docker run --rm \
+            -v /var/run/docker.sock:/var/run/docker.sock \
+            -v "$HOME/.cache/trivy:/root/.cache/trivy" \
+            -v "$PWD/.trivyignore:/.trivyignore:ro" \
+            aquasec/trivy:0.76.2 image \
+              --scanners vuln \
+              --severity HIGH,CRITICAL \
+              --ignore-unfixed \
+              --ignorefile /.trivyignore \
+              --db-repository ghcr.io/aquasecurity/trivy-db,public.ecr.aws/aquasecurity/trivy-db \
+              --java-db-repository ghcr.io/aquasecurity/trivy-java-db,public.ecr.aws/aquasecurity/trivy-java-db \
+              --exit-code 1 \
+              --no-progress \
+              dokiments-api:scan

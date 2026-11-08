@@ -255,6 +255,16 @@ tasks.bootRun {
     }
 }
 
+// Prints the version worked out above, so CI can tag and label the Docker image with
+// exactly the version Gradle uses, without repeating the Git logic in a shell script.
+// Usage: ./gradlew -q printVersion
+tasks.register("printVersion") {
+    val projectVersion = version.toString()
+    doLast {
+        println(projectVersion)
+    }
+}
+
 /**
  * Derives the project version from the latest `v*` Git tag, so no version number is
  * ever committed:
