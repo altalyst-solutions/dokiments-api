@@ -18,7 +18,7 @@
 # the same Java version.
 
 # Stage 1, build: compile and package the Spring Boot jar.
-FROM eclipse-temurin:25.0.5_8-jdk-noble AS build
+FROM eclipse-temurin:26.0.2.1_1-jdk-noble AS build
 WORKDIR /workspace
 
 # Gradle wrapper and build scripts first: this layer, and the dependency cache below,
@@ -52,7 +52,7 @@ RUN --mount=type=cache,target=/root/.gradle \
 RUN java -Djarmode=tools -jar app.jar extract --layers --launcher --destination /workspace/extracted
 
 # Stage 2, runtime: JRE only, non-root, no build tools.
-FROM eclipse-temurin:25.0.5_8-jre-noble AS runtime
+FROM eclipse-temurin:26.0.2.1_1-jre-noble AS runtime
 
 ARG APP_VERSION=""
 ARG GIT_COMMIT=""
