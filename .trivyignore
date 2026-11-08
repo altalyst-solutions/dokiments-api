@@ -1,0 +1,9 @@
+# Vulnerabilities the CI image scan (Trivy) should not fail on.
+#
+# Only add an entry after checking that the vulnerability can't affect this service, or
+# that no fix is possible yet and the risk is accepted. Every entry needs a comment with
+# the reason and a date to review it again, and should be removed as soon as a fix is
+# available. One vulnerability ID per line, for example:
+#
+#   # Only reachable through feature X, which we don't use. Review 2027-01-01.
+#   CVE-2026-000000

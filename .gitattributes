@@ -1,0 +1,17 @@
+# Normalise line endings: text files are stored with LF in the repository, whatever the
+# operating system of the person committing.
+* text=auto eol=lf
+
+# Windows scripts need CRLF to run.
+*.bat text eol=crlf
+*.cmd text eol=crlf
+
+# Unix scripts must keep LF, or they fail with "bad interpreter" on Linux and macOS.
+gradlew text eol=lf
+*.sh text eol=lf
+
+# Binary files: never convert line endings or show text diffs.
+*.jar binary
+*.png binary
+*.jpg binary
+*.ico binary

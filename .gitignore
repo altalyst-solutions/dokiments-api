@@ -11,8 +11,10 @@ build/
 hs_err_pid*
 replay_pid*
 
-# IntelliJ IDEA
-.idea/
+# IntelliJ IDEA (only the shared plugin list and formatter switch are committed)
+.idea/*
+!.idea/externalDependencies.xml
+!.idea/palantir-java-format.xml
 *.iml
 *.ipr
 *.iws
@@ -31,7 +33,11 @@ out/
 bin/
 !**/src/main/**/bin/
 !**/src/test/**/bin/
-.vscode/
+
+# VS Code (only the shared extension list and settings are committed)
+.vscode/*
+!.vscode/extensions.json
+!.vscode/settings.json
 
 # NetBeans
 nbproject/private/

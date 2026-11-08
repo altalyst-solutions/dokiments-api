@@ -1,0 +1,8 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!-- Turns the palantir-java-format plugin on for this project (it is off by default), so
+     IntelliJ's "Reformat Code" produces the same result as `./gradlew spotlessApply`. -->
+<project version="4">
+  <component name="PalantirJavaFormatSettings">
+    <option name="enabled" value="true" />
+  </component>
+</project>

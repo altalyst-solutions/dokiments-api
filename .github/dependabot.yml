@@ -1,0 +1,65 @@
+# Weekly dependency update pull requests.
+#
+# Commit messages and pull request titles use Conventional Commits, so Dependabot's pull
+# requests pass the commit message check in CI, for example
+# "build(deps): bump the gradle-minor-and-patch group with 3 updates".
+#
+# Minor and patch updates are grouped into one pull request per ecosystem to keep the noise
+# down. Major updates come one per pull request, because they are the ones that can need
+# code changes.
+#
+# Dependabot can't see the image tags in src/test/java/com/dokiments/support/TestImages.java.
+# When it bumps an image in compose.yaml, TestImagesMatchComposeTest fails until the same
+# tag is copied into TestImages.
+
+version: 2
+
+updates:
+  - package-ecosystem: gradle
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+    commit-message:
+      prefix: build
+      include: scope
+    groups:
+      gradle-minor-and-patch:
+        update-types: [minor, patch]
+    open-pull-requests-limit: 10
+
+  - package-ecosystem: github-actions
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+    commit-message:
+      prefix: ci
+      include: scope
+    groups:
+      actions-minor-and-patch:
+        update-types: [minor, patch]
+
+  # Base images in the Dockerfile. The JDK and JRE images are grouped so they are always
+  # bumped together and the build and runtime stages stay on the same Java version.
+  - package-ecosystem: docker
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+    commit-message:
+      prefix: build
+      include: scope
+    groups:
+      temurin:
+        patterns: ["eclipse-temurin"]
+
+  # Redis and Firestore emulator images in compose.yaml.
+  - package-ecosystem: docker-compose
+    directory: /
+    schedule:
+      interval: weekly
+      day: monday
+    commit-message:
+      prefix: build
+      include: scope
