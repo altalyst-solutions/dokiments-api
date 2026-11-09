@@ -14,13 +14,13 @@ Each direct sub-package of `com.dokiments` is a module:
 - **Feature modules:** `auth`, `users`, `documents`, `sharing`, `clients`, `templates`, `notifications`, `feedback`,
   `promo`, `newsletter`.
 - **`shared`:** small value types used by every module.
-- **`platform`:** technical setup such as security, configuration, error handling and Firestore. It never depends on
-  a feature module.
+- **`platform`:** technical setup such as security, configuration, error handling, Firestore and HTTP clients. It
+  never depends on a feature module.
 
 ```mermaid
 flowchart TB
     features["Feature modules<br/>auth, users, documents, sharing, clients,<br/>templates, notifications, feedback, promo, newsletter"]
-    features --> platform["platform<br/>security, configuration, error handling, Firestore"]
+    features --> platform["platform<br/>security, configuration, error handling,<br/>Firestore, HTTP clients"]
     features --> shared["shared<br/>small value types"]
     platform --> shared
 ```
@@ -58,7 +58,8 @@ mapping between them. Side effects such as sending email happen in listeners rea
 
 ## How it is enforced
 
-- `HexagonalArchitectureTest` (ArchUnit): layer dependencies, which libraries each layer may use, and no Lombok.
+- `HexagonalArchitectureTest` (ArchUnit): layer dependencies, which libraries each layer may use (HTTP clients only in
+  `adapter.out`), and no Lombok.
 - `ModularityTest` (Spring Modulith): module boundaries and no cycles. It also writes module diagrams to
   `build/spring-modulith-docs/`.
 
