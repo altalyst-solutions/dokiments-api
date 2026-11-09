@@ -29,6 +29,8 @@ import com.tngtech.archunit.lang.ArchRule;
  * automatically as code is added.
  */
 @AnalyzeClasses(packages = "com.dokiments", importOptions = ImportOption.DoNotIncludeTests.class)
+// The rules are found and run by ArchUnit through @ArchTest, so they look unused to the IDE.
+@SuppressWarnings("unused")
 class HexagonalArchitectureTest {
 
     private static final String[] FEATURE_MODULES = {

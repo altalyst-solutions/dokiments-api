@@ -1,4 +1,5 @@
 # Shared editor settings. IntelliJ, VS Code and ktlint (via Spotless) all read this.
+# ktlint's own style setting lives in build.gradle.kts, because editors don't recognise it.
 root = true
 
 [*]
@@ -10,18 +11,12 @@ indent_style = space
 indent_size = 4
 max_line_length = 120
 
-[*.{kts,kt}]
-ktlint_code_style = intellij_idea
-
 [*.{yml,yaml,json,toml}]
 indent_size = 2
 
 [*.md]
 # Two trailing spaces are a hard line break in Markdown.
 trim_trailing_whitespace = false
-
-[{gradlew,*.sh}]
-end_of_line = lf
 
 [*.bat]
 end_of_line = crlf

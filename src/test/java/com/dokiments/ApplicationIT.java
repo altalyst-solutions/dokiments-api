@@ -12,6 +12,7 @@ import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
+import org.springframework.security.test.context.support.WithMockUser;
 import org.springframework.test.web.servlet.assertj.MockMvcTester;
 
 /**
@@ -78,5 +79,22 @@ class ApplicationIT {
         assertThat(redis.keys("*"))
                 .as("a rejected anonymous request must not leave a session in Redis")
                 .isEmpty();
+    }
+
+    @Test
+    void anAnonymousRequestGetsTheUnauthorisedBodyTheWebAppExpects() {
+        assertThat(mvc.get().uri("/api/documents"))
+                .hasStatus(HttpStatus.UNAUTHORIZED)
+                .bodyJson()
+                .isStrictlyEqualTo("{\"error\":\"Unauthorised.\"}");
+    }
+
+    @Test
+    @WithMockUser
+    void aSignedInUserIsForbiddenFromEndpointsThatArentOpenYet() {
+        assertThat(mvc.get().uri("/api/documents"))
+                .hasStatus(HttpStatus.FORBIDDEN)
+                .bodyJson()
+                .isStrictlyEqualTo("{\"error\":\"Forbidden.\"}");
     }
 }

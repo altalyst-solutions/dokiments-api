@@ -49,7 +49,6 @@ dependencies {
     }
     annotationProcessor(platform(SpringBootPlugin.BOM_COORDINATES))
     developmentOnly(platform(SpringBootPlugin.BOM_COORDINATES))
-    testImplementation(platform(libs.spring.modulith.bom))
 
     // Web / API
     implementation(libs.spring.boot.starter.webmvc)
@@ -103,7 +102,16 @@ tasks.withType<JavaCompile>().configureEach {
     // Keep method parameter names in bytecode (Spring uses them for binding).
     options.compilerArgs.add("-parameters")
 
+    // Every compiler and Error Prone warning fails the build, so problems are fixed while the
+    // code is being written instead of piling up. `processing` is left out because annotation
+    // processors such as the configuration processor warn about things that aren't ours.
+    options.compilerArgs.addAll(listOf("-Xlint:all,-processing", "-Werror"))
+
     options.errorprone {
+        // Error Prone reports these as warnings by default; -Werror makes them fail the build.
+        // Unused code is usually a leftover or a mistake (a parameter that should have been used).
+        check("UnusedVariable", CheckSeverity.ERROR)
+        check("UnusedMethod", CheckSeverity.ERROR)
         // Generated sources (annotation processors, later MapStruct) are not ours to fix.
         disableWarningsInGeneratedCode = true
         excludedPaths = ".*/build/generated/.*"
@@ -207,7 +215,9 @@ spotless {
     }
     kotlinGradle {
         target("*.gradle.kts")
-        ktlint()
+        // IntelliJ's Kotlin style rather than ktlint's default. Set here, not in .editorconfig,
+        // because the key is ktlint-only and editors flag it as unknown there.
+        ktlint().editorConfigOverride(mapOf("ktlint_code_style" to "intellij_idea"))
     }
     format("misc") {
         target("*.md", ".gitignore", ".gitattributes", ".editorconfig", "**/*.yml", "**/*.yaml", "gradle/*.toml")
@@ -259,6 +269,8 @@ tasks.bootRun {
 // exactly the version Gradle uses, without repeating the Git logic in a shell script.
 // Usage: ./gradlew -q printVersion
 tasks.register("printVersion") {
+    description = "Prints the version Gradle works out from Git tags."
+    group = "help"
     val projectVersion = version.toString()
     doLast {
         println(projectVersion)

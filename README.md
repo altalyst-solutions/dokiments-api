@@ -284,8 +284,35 @@ Code is formatted by Spotless. `./gradlew build` fails on unformatted code, and 
 ./gradlew spotlessApply
 ```
 
-Editor setup is shared in the repository. VS Code suggests the recommended extensions from `.vscode/extensions.json`.
-IntelliJ IDEA asks to install the palantir-java-format plugin, which makes "Reformat Code" match Spotless.
+Editor setup is shared in the repository:
+
+- **IntelliJ IDEA** asks to install the palantir-java-format plugin (`.idea/externalDependencies.xml`), and the project
+  turns it on (`.idea/palantir-java-format.xml`), so "Reformat Code" gives exactly the same result as Spotless.
+- **VS Code** suggests the recommended extensions from `.vscode/extensions.json`. VS Code can't run
+  palantir-java-format, and its own Java formatter would lay code out differently, so `.vscode/settings.json` turns
+  format-on-save off for Java: run `./gradlew spotlessApply` before committing instead. It also sets the same import
+  order as palantir-java-format (static imports first, then the rest alphabetically), so organising imports doesn't
+  fight Spotless, and re-imports the Gradle project when the build files change.
+
+## Code quality checks
+
+The build is strict on purpose, so problems are fixed while the code is written:
+
+- **Formatting:** `./gradlew build` fails on unformatted code. `./gradlew spotlessApply` fixes it.
+- **Compiler and static analysis:** every compiler warning and every Error Prone finding, including unused variables,
+  methods and parameters, fails the build. NullAway fails it on possible null-pointer errors.
+- **Architecture:** `HexagonalArchitectureTest` and `ModularityTest` fail it when layers or modules depend on each
+  other the wrong way.
+
+For everything else IntelliJ IDEA checks (Spring configuration, YAML, Gradle scripts, docs), run its inspections from
+the command line. It takes about a minute, works while the IDE is open, and doesn't change your IDE settings:
+
+```bash
+scripts/inspect.sh
+```
+
+It should print `No problems.` A few findings that don't apply to this project are left out, with the reason for each
+at the top of the script.
 
 ## Configuration
 
@@ -296,6 +323,8 @@ All configuration comes from environment variables, so the same image runs on an
 | `REDIS_URL` | Yes, outside `dev` | Redis connection, for example `redis://host:6379` or `rediss://user:password@host:6379` for TLS. The application refuses to start without it. In `dev` it defaults to the Compose service. |
 | `PORT` | No | HTTP port. Defaults to `8080`. |
 | `SPRING_PROFILES_ACTIVE` | No | `prod` in the Docker image, `dev` for `bootRun`. |
+| `DOCUMENT_SHARING_ENABLED` | No | `true` turns on sharing documents for signature. Off by default; while off, the sharing endpoints answer `404`. |
+| `TIER_LOCKS_ENABLED` | No | `false` stops enforcing plan limits. On by default; only switch it off for testing. |
 
 The base `application.yml` holds production-safe defaults, `application-dev.yml` local conveniences, and
 `application-prod.yml` what differs in production.
@@ -333,6 +362,25 @@ platform.
 | `/actuator/health` | Public | Overall health. Also `/actuator/health/liveness` and `/actuator/health/readiness` for container probes. |
 | `/actuator/info` | Public | Version, Git commit and Java version |
 | Everything else | Denied (`401`) | Opened explicitly as features are added |
+
+### Errors
+
+Every error response has the same body, `{ "error": "<message safe to show the user>" }`, with the status codes and
+wording the web app already expects:
+
+| Status | When | Message |
+| --- | --- | --- |
+| `400` | The body isn't valid JSON, or is missing | `Request body must be valid JSON.` |
+| `400` | The body doesn't match what the endpoint expects | `Invalid request body.` |
+| `400` | A query parameter is missing or invalid | `Invalid query parameters.` |
+| `401` | Not signed in, or the session has ended | `Unauthorised.` |
+| `403` | Signed in, but not allowed to do this | Specific reason, or `Forbidden.` |
+| `404` | Doesn't exist, or belongs to someone else | Specific, such as `Document not found.`, or `Not found.` |
+| `409` | Clashes with the current state | Specific, such as `This document is not shared with anyone.` |
+| `503` | An external service couldn't be reached | `Couldn't reach an external service. Please try again in a moment.` |
+| `500` | Anything unexpected | `Something went wrong. Please try again.` |
+
+What exactly was wrong (which field failed validation, the underlying exception) is logged, never returned.
 
 ## Docker image
 

@@ -32,8 +32,12 @@ memory for names: check the jars in the Gradle cache or the official docs before
 | Run locally (`dev` profile; starts Redis and the Firestore emulator from `compose.yaml`) | `./gradlew bootRun` |
 | Run the API as a container with its services | `docker compose --profile full up --build` |
 | Build the image | `docker build -t dokiments-api .` |
+| IntelliJ inspections (needs IntelliJ IDEA) | `scripts/inspect.sh` |
 
-Run `./gradlew spotlessApply` and then `./gradlew build` before saying a change is done.
+Before saying a change is done, run `./gradlew spotlessApply`, then `./gradlew build`, then `scripts/inspect.sh` when
+IntelliJ IDEA is available, and fix every problem they report. The build treats every compiler and Error Prone warning
+as an error, so don't silence one to make it pass: fix the code. Suppress a finding (`@SuppressWarnings`) only when it
+is a false positive, with a comment explaining why, for example a field that a framework reads by reflection.
 
 ## Architecture
 
@@ -91,6 +95,22 @@ Rules, enforced by `HexagonalArchitectureTest` (ArchUnit) and `ModularityTest` (
   service must run on any container platform.
 - Error Prone runs on every compile. Fix its findings rather than suppressing them.
 
+## Errors
+
+- For an expected failure, throw one of the exceptions in `com.dokiments.shared.error` (`InvalidRequestException`,
+  `UnauthenticatedException`, `ForbiddenException`, `NotFoundException`, `ConflictException`,
+  `UpstreamUnavailableException`). `platform.web.ApiExceptionHandler` turns them into the status code and the
+  `{ "error": "..." }` body. Never build error responses in controllers.
+- The exception's message is sent to the client as is, so it must be written for users and never contain internal
+  details. Put diagnostic information in the `cause`, which is logged only.
+- For a more specific failure in a module, extend the matching type (for example a `DocumentLockedException` extending
+  `ConflictException`). Don't add new types to the sealed `DokimentsException` hierarchy without also mapping them in
+  `ApiExceptionHandler`; the compiler enforces this.
+- Answer "exists but belongs to someone else" exactly like "doesn't exist" (`NotFoundException`), so IDs can't be
+  probed.
+- An unreachable external service is `UpstreamUnavailableException` (`503`), never `401` or `400`.
+- Keep the generic messages in `platform.web.ErrorMessages` worded exactly as they are: the web app shows them.
+
 ## Comments
 
 - Comments explain **why**, in full sentences, with enough detail for someone new to the code. Don't restate what the
@@ -118,6 +138,8 @@ Rules, enforced by `HexagonalArchitectureTest` (ArchUnit) and `ModularityTest` (
 - `src/test/resources/application-test.yml` is used by integration tests.
 - Required settings, such as `REDIS_URL`, have no default in the base configuration so a misconfigured deployment
   fails at startup.
+- Application settings are bound into `platform.config.DokimentsProperties` (prefix `dokiments`), with each
+  environment variable and its default mapped in `application.yml`. Read settings from there, not with `@Value`.
 - Local development settings live in a git-ignored `.env`, read by Docker Compose and by the `dev` profile only.
   Every setting has its default in `.env.example`. When adding one, add it to `.env.example` and to the "Local settings"
   table in the README. Never read `.env` outside the `dev` profile, and never put secrets in it.

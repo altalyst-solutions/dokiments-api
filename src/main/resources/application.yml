@@ -29,6 +29,25 @@ spring:
       redis:
         # Keeps session keys grouped and apart from anything else in the same Redis.
         namespace: dokiments:session
+  web:
+    error:
+      # Never leak internals in error responses. (In Spring Boot 4 these moved here from
+      # server.error.*.) The body itself is replaced by ApiErrorAttributes anyway; these keep
+      # Spring Boot from even collecting the details.
+      include-stacktrace: never
+      include-message: never
+      include-binding-errors: never
+      include-exception: false
+      whitelabel:
+        enabled: false
+
+# The application's own settings (see com.dokiments.platform.config.DokimentsProperties).
+dokiments:
+  features:
+    # Sharing documents for signature. Off unless DOCUMENT_SHARING_ENABLED=true.
+    document-sharing: ${DOCUMENT_SHARING_ENABLED:false}
+    # Plan limits. On unless TIER_LOCKS_ENABLED=false, which is only meant for testing.
+    tier-locks: ${TIER_LOCKS_ENABLED:true}
 
 server:
   port: ${PORT:8080}
@@ -36,14 +55,6 @@ server:
   # Behind Next.js and the platform's load balancer: trust X-Forwarded-* so
   # redirects, cookies and client IPs use the original scheme/host.
   forward-headers-strategy: framework
-  error:
-    # Never leak internals in error responses.
-    include-stacktrace: never
-    include-message: never
-    include-binding-errors: never
-    include-exception: false
-    whitelabel:
-      enabled: false
 
 management:
   endpoints:
