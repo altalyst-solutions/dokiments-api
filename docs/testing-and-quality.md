@@ -23,6 +23,8 @@ How tests are written:
   Spring but still need Docker use `@Tag(IntegrationTest.TAG)`. By convention, integration test classes end in `IT`.
 - Container images for tests are pinned in `src/test/java/com/dokiments/support/TestImages.java` and match
   `compose.yaml`.
+- Emails are tested by rendering their templates (`EmailTemplatesTest`) and by sending to a stand-in for Resend's API
+  on the test machine (`ResendEmailSenderTest`). No test sends real email.
 - Every behaviour change comes with tests. A fix comes with a test that fails without it.
 
 ## What the build checks

@@ -12,6 +12,11 @@ All configuration comes from environment variables, so the same image runs on an
 | `FIREBASE_PROJECT_ID` | Yes, outside `dev` | Firebase project holding the Firestore database. In `dev` and tests it is `demo-dokiments` on the emulator. |
 | `FIRESTORE_EMULATOR_HOST` | No | `host:port` of a Firestore emulator to use instead of the real Firestore. Only allowed with a `demo-` project ID. |
 | `GOOGLE_APPLICATION_CREDENTIALS` | Outside Google Cloud | Path to service account credentials for Firestore. On Cloud Run, the attached service account is used instead, so no file is needed. |
+| `RESEND_API_KEY` | No | Resend API key for sending email: a send-only key limited to the sending domain. Without it, nothing is sent. Locally, set it in your shell for one run, never in `.env`. |
+| `EMAIL_FROM` | No | Sender, as `Name <address>` on the domain verified in Resend. Defaults to `Dokiments <notifications@mail.dokiments.com>`. |
+| `EMAIL_REPLY_TO` | No | Where replies go, such as a support inbox. The sending domain can't receive mail. |
+| `EMAIL_ALLOW_LIST` | No | Comma-separated addresses. When set, only they receive email: for staging. Leave it unset in production. |
+| `SITE_URL` | No | The web app's address, for links in emails. Defaults to `https://dokiments.com`, and to `http://localhost:3000` in `dev`. |
 | `SPRING_PROFILES_ACTIVE` | No | `prod` in the Docker image, `dev` for `bootRun`. |
 | `DOCUMENT_SHARING_ENABLED` | No | `true` turns on sharing documents for signature. Off by default; while off, the sharing endpoints answer `404`. |
 | `TIER_LOCKS_ENABLED` | No | `false` stops enforcing plan limits. On by default; only switch it off for testing. |
@@ -56,6 +61,29 @@ Every call to an external service (Firebase Auth, Google sign-in, Resend) follow
 The defaults rarely need changing, and aren't in `.env.example`. If they must, they are settings under
 `dokiments.http` (for example `DOKIMENTS_HTTP_TOTAL_TIMEOUT=10s`), described in `HttpClientProperties`.
 
+## Email
+
+Email is sent through [Resend](https://resend.com). Who receives it depends on the settings:
+
+| Mode | When | Who receives email |
+| --- | --- | --- |
+| Off | No `RESEND_API_KEY` | Nobody. The application works normally, and logs that the email wasn't sent. |
+| Restricted | A key and `EMAIL_ALLOW_LIST`, or a key in `dev` and tests | Only the addresses on `EMAIL_ALLOW_LIST`. In `dev` and tests an empty list means nobody, so trying something out can never email a real user. |
+| On | A key, no allow list, outside `dev` and tests | Everyone. Production only. |
+
+The start-up log says which mode applies. Logs never show full addresses (`j***@example.com`). Resend's test
+address `delivered@resend.dev` is always safe to send to.
+
+Locally, without a key, the text of every email that would have been sent is written to the log, so you can check
+it. To send real emails to yourself, add your address to `EMAIL_ALLOW_LIST` in `.env` and run with the key:
+
+```bash
+RESEND_API_KEY=re_... ./gradlew bootRun
+```
+
+Use the key for staging and local use, never the production one. See [Testing and quality](testing-and-quality.md)
+for how emails are tested, and `src/main/resources/email/` for the templates.
+
 ## Local settings
 
 For local development, put your own values in a `.env` file in the project folder. Start from the example, which lists
@@ -77,6 +105,8 @@ set as a real environment variable, such as `PORT=8090 ./gradlew bootRun`, still
 | `FIRESTORE_SAVE_INTERVAL_SECONDS` | `60` | How often the emulator saves local data |
 | `FIRESTORE_KEEP_SAVES` | `3` | How many emulator saves are kept (at least 1) |
 | `REDIS_URL` | not set | Use a different Redis instead of the one Docker Compose starts |
+| `SITE_URL` | `http://localhost:3000` | The web app, for links in emails |
+| `EMAIL_ALLOW_LIST` | not set | The only addresses that receive email locally (see [Email](#email)) |
 
 Write one `KEY=value` per line, without quotes and without comments on the same line: both Docker Compose and Spring
 Boot read the file. Don't put secrets in it. Deployed containers never read `.env`; they get their settings from the
