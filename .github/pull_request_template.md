@@ -23,13 +23,13 @@ For example: feat(newsletter): add subscribe endpoint
 
 - **API contract:** no change / changed (paths, request or response bodies, status codes, `{ "error": "..." }` shape)
 - **Firestore data:** no change / changed (collections, field names, field types)
-- **Configuration:** no change / new or changed environment variables (documented in the README)
+- **Configuration:** no change / new or changed environment variables (documented in `docs/configuration.md`)
 - **Security:** no change / new public endpoint, authentication or permission change
 
 ## Checklist
 
 - [ ] The PR title and every commit follow Conventional Commits
-- [ ] README and `.github/copilot-instructions.md` are updated if conventions, commands or configuration changed
+- [ ] `docs/` and `.github/copilot-instructions.md` are updated if conventions, commands or configuration changed
 
 ## Notes for reviewers
 
