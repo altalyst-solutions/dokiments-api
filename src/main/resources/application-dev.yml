@@ -32,6 +32,12 @@ dokiments:
     emulator-host: ${FIRESTORE_EMULATOR_HOST:localhost:${FIRESTORE_EMULATOR_PORT:8085}}
     require-emulator: true
 
+  # Only the addresses on EMAIL_ALLOW_LIST ever receive email locally, even with a Resend key, so
+  # trying something out can't email a real user. Links point at the web app running locally.
+  email:
+    restrict-recipients: true
+    site-url: ${SITE_URL:http://localhost:3000}
+
 management:
   endpoint:
     health:

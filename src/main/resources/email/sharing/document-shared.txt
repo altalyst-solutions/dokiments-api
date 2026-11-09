@@ -1,0 +1,9 @@
+[(${updated} ? |${senderName} updated a shared document| : |${senderName} shared a document with you|)]
+
+[(${updated} ? |${senderName} made changes to "${documentName}". Open it to review the latest version and sign.| : |${senderName} shared "${documentName}" with you on ${siteName} for your signature.|)]
+
+New to [(${siteName})]? Create an account with this email address and the document will be waiting under Shared with me.
+
+Open document: [(${url})]
+
+[# th:insert="~{footer.txt}" /]

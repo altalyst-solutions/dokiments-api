@@ -56,6 +56,17 @@ dokiments:
     project-id: ${FIREBASE_PROJECT_ID:}
     emulator-host: ${FIRESTORE_EMULATOR_HOST:}
 
+  # Transactional email through Resend (see com.dokiments.platform.email.EmailProperties for who
+  # receives it). Without RESEND_API_KEY nothing is sent. EMAIL_ALLOW_LIST, comma-separated,
+  # limits email to those addresses: for staging. Leave it unset in production.
+  email:
+    resend-api-key: ${RESEND_API_KEY:}
+    from: ${EMAIL_FROM:Dokiments <notifications@mail.dokiments.com>}
+    reply-to: ${EMAIL_REPLY_TO:}
+    allow-list: ${EMAIL_ALLOW_LIST:}
+    # The web app, for the links in emails.
+    site-url: ${SITE_URL:https://dokiments.com}
+
 server:
   port: ${PORT:8080}
   shutdown: graceful

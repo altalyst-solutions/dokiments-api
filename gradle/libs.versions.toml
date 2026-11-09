@@ -44,6 +44,9 @@ spring-boot-docker-compose = { module = "org.springframework.boot:spring-boot-do
 spring-boot-devtools = { module = "org.springframework.boot:spring-boot-devtools" }
 spring-boot-configuration-processor = { module = "org.springframework.boot:spring-boot-configuration-processor" }
 
+# Email templates (version from the Boot BOM)
+thymeleaf-spring6 = { module = "org.thymeleaf:thymeleaf-spring6" }
+
 # Spring Modulith (versions from the Modulith BOM)
 spring-modulith-starter-core = { module = "org.springframework.modulith:spring-modulith-starter-core" }
 spring-modulith-starter-test = { module = "org.springframework.modulith:spring-modulith-starter-test" }
