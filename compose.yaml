@@ -9,6 +9,9 @@
 #
 # Image tags must stay in line with src/test/java/com/dokiments/support/TestImages.java,
 # so that local development and integration tests use the same versions.
+#
+# The ${...} values below can be changed in a .env file next to this one, which Docker
+# Compose reads automatically. See .env.example for every setting and its default.
 
 name: dokiments-api
 
@@ -28,17 +31,25 @@ services:
 
   firestore:
     image: gcr.io/google.com/cloudsdktool/google-cloud-cli:592.0.0-emulators
-    # A "demo-" project ID can never match a real Firebase project, so nothing written
-    # here can reach Google.
-    command: >-
-      gcloud emulators firestore start
-      --host-port=0.0.0.0:8080
-      --project=demo-dokiments
-    # A fixed host port, because the application will be pointed at it with
-    # FIRESTORE_EMULATOR_HOST=localhost:8085. Spring Boot has no built-in support for the
-    # Firestore emulator, so it can't discover a random port the way it does for Redis.
+    # The emulator keeps data in memory only. This script loads the last save on start,
+    # saves regularly and once more on stop, so local data survives restarts. The
+    # project ID is "demo-dokiments": a "demo-" ID can never match a real Firebase project,
+    # so nothing written here can reach Google. Only data in that project is saved.
+    entrypoint: ["bash", "/start.sh"]
+    volumes:
+      - ./docker/firestore-emulator/start.sh:/start.sh:ro
+      - firestore-data:/data
+    environment:
+      SAVE_INTERVAL_SECONDS: ${FIRESTORE_SAVE_INTERVAL_SECONDS:-60}
+      KEEP_SAVES: ${FIRESTORE_KEEP_SAVES:-3}
+    # Time for the final save before Docker force-stops the container.
+    stop_grace_period: 30s
+    # A known host port (8085 unless FIRESTORE_EMULATOR_PORT says otherwise), because the
+    # application will be pointed at it with FIRESTORE_EMULATOR_HOST. Spring Boot has no
+    # built-in support for the Firestore emulator, so it can't discover a random port the
+    # way it does for Redis.
     ports:
-      - "8085:8080"
+      - "${FIRESTORE_EMULATOR_PORT:-8085}:8080"
     labels:
       # Spring Boot would otherwise log that it found a service it doesn't recognise.
       org.springframework.boot.ignore: "true"
@@ -77,3 +88,8 @@ secrets:
   # permission flag, and that would break the build on every machine.
   extra_ca:
     environment: EXTRA_CA_PEM
+
+volumes:
+  # Saved Firestore emulator data. Kept by `docker compose down`; removed, for a fresh
+  # empty database, by `docker compose down --volumes`.
+  firestore-data:
