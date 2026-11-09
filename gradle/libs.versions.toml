@@ -22,12 +22,15 @@ jacoco = "0.8.16"
 # those have known vulnerabilities. Remove an entry once the BOMs ship the fixed version.
 guava = "33.8.0-jre"
 opentelemetry = "1.68.0"
+# Used only by the Gradle build itself (through the Spring Boot plugin), never shipped.
+commons-lang3 = "3.21.0"
 
 [libraries]
 # BOMs
 spring-modulith-bom = { module = "org.springframework.modulith:spring-modulith-bom", version.ref = "spring-modulith" }
 opentelemetry-bom = { module = "io.opentelemetry:opentelemetry-bom", version.ref = "opentelemetry" }
 guava = { module = "com.google.guava:guava", version.ref = "guava" }
+commons-lang3 = { module = "org.apache.commons:commons-lang3", version.ref = "commons-lang3" }
 
 # Spring Boot starters (versions from the Boot BOM)
 spring-boot-starter-webmvc = { module = "org.springframework.boot:spring-boot-starter-webmvc" }

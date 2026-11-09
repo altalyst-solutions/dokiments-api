@@ -1,5 +1,5 @@
-# Allow-list: send the Docker build only what it needs. Everything else (.git, build
-# output, IDE files, local .env files, credentials) never leaves this machine.
+# Allow-list: send the Docker build only what it needs. Everything else never leaves this
+# machine: .git, build output, IDE files, local .env files and credentials.
 *
 
 !gradlew

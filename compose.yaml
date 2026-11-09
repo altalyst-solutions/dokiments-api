@@ -69,6 +69,9 @@ services:
         - extra_ca
     environment:
       REDIS_URL: redis://redis:6379
+      # The Compose emulator, with its "demo-" project ID, never a real project.
+      FIREBASE_PROJECT_ID: demo-dokiments
+      FIRESTORE_EMULATOR_HOST: firestore:8080
     ports:
       - "${API_PORT:-8080}:8080"
     depends_on:

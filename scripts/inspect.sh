@@ -6,14 +6,18 @@
 #
 #   scripts/inspect.sh
 #
-# Needs IntelliJ IDEA installed. It runs with its own temporary settings, so it works while
-# the IDE is open and doesn't change your IDE settings. Set IDEA_HOME if IntelliJ isn't in
-# /Applications/IntelliJ IDEA.app.
+# It exits with 1 when it finds problems, and with 2 when IntelliJ couldn't inspect part of
+# the project, so a run that silently checked less is never mistaken for a clean one.
+#
+# Needs IntelliJ IDEA installed and the project opened in it at least once (so it knows which
+# JDK the project uses). It runs with its own temporary settings, so it works while the IDE is
+# open and doesn't change your IDE settings. Set IDEA_HOME if IntelliJ isn't in
+# /Applications/IntelliJ IDEA.app, and IDEA_CONFIG if your IDE settings folder isn't found.
 #
 # Some findings are known not to apply here and are listed separately at the end instead of
 # with the problems:
-# - Grazie spelling and style: the project is written in British English, which Grazie flags
-#   by default ("colour", "behaviour").
+# - British spellings: the project is written in British English, which Grazie flags as not
+#   American ("colour", "behaviour"). Every other Grazie finding is listed.
 # - Inputs of GitHub Actions: this command-line run can't download each action's description,
 #   so every input looks undefined. The editor resolves them.
 # - Anything under build/, which is generated.
@@ -30,9 +34,21 @@ if [[ ! -x "$inspect" ]]; then
   exit 1
 fi
 
+# The newest IntelliJ settings folder, for the JDK definitions below.
+find_ide_config() {
+  local base
+  for base in "$HOME/Library/Application Support/JetBrains" "$HOME/.config/JetBrains"; do
+    if [[ -d "$base" ]]; then
+      find "$base" -mindepth 1 -maxdepth 1 -type d \( -name 'IntelliJIdea*' -o -name 'IdeaIC*' \) | sort -V | tail -n 1
+      return
+    fi
+  done
+}
+ide_config="${IDEA_CONFIG:-$(find_ide_config)}"
+
 work_dir="$(mktemp -d)"
 trap 'rm -rf "${work_dir:?}"' EXIT
-mkdir -p "$work_dir"/{config,system,log,out}
+mkdir -p "$work_dir"/{config/options,system,log,out}
 
 # Separate settings and caches, so this isn't blocked by (and doesn't touch) a running IDE.
 cat > "$work_dir/idea.properties" <<EOF
@@ -41,10 +57,24 @@ idea.system.path=${work_dir}/system
 idea.log.path=${work_dir}/log
 EOF
 
-# An empty profile means IntelliJ's default inspections, as in a fresh editor.
+# The project refers to its JDK by the name it has in your IDE (for example "25"). Without that
+# definition, IntelliJ can't resolve even basic Java types and most Java checks find nothing, so
+# only the JDK definitions are copied from your IDE settings. Nothing else is read.
+if [[ -n "$ide_config" && -f "$ide_config/options/jdk.table.xml" ]]; then
+  cp "$ide_config/options/jdk.table.xml" "$work_dir/config/options/"
+else
+  echo "No IntelliJ JDK definitions found (looked in ${ide_config:-the default settings folders})." >&2
+  echo "Open the project in IntelliJ once, or set IDEA_CONFIG to your IDE settings folder." >&2
+  exit 2
+fi
+
+# IntelliJ's default inspections, as in a fresh editor, except one: the "extract method"
+# recommender crashes on records with a compact constructor. In this command-line mode such a
+# crash abandons the whole file, so every other check of that file would be lost with it.
 cat > "$work_dir/profile.xml" <<'EOF'
 <profile version="1.0">
   <option name="myName" value="Default" />
+  <inspection_tool class="ExtractMethodRecommender" enabled="false" level="INFORMATION" enabled_by_default="false" />
 </profile>
 EOF
 
@@ -53,15 +83,17 @@ if ! IDEA_PROPERTIES="$work_dir/idea.properties" "$inspect" "$project_dir" "$wor
   "$work_dir/out" -v0 -format json > "$work_dir/run.log" 2>&1; then
   echo "IntelliJ couldn't inspect the project:" >&2
   tail -n 20 "$work_dir/run.log" >&2
-  exit 1
+  exit 2
 fi
 
-python3 - "$work_dir/out" <<'EOF'
+python3 - "$work_dir/out" "$work_dir/log/idea.log" <<'EOF'
 import json, os, re, sys
 from collections import Counter
 
-out = sys.argv[1]
-known = {"GrazieInspection", "GrazieStyle", "UndefinedParamsPresent"}
+out, ide_log = sys.argv[1], sys.argv[2]
+
+# Grazie's suggestions to use American instead of British spelling.
+BRITISH_SPELLING = re.compile(r"American English|British (roots|English)")
 
 # Findings that are intentional, by file and inspection. Keep this list short and give each a
 # reason: everything else should be fixed.
@@ -74,8 +106,8 @@ ACCEPTED = {
     # The logo is a 512 px image shown at 96 px on purpose, so it stays sharp on dense screens.
     ("README.md", "CheckImageSize"),
 }
-problems, skipped = [], Counter()
 
+problems, skipped = [], Counter()
 for name in sorted(os.listdir(out)):
     if not name.endswith(".json"):
         continue
@@ -83,15 +115,27 @@ for name in sorted(os.listdir(out)):
     with open(os.path.join(out, name)) as f:
         for p in json.load(f).get("problems", []):
             path = re.sub(r"^.*?\$PROJECT_DIR\$/", "", p.get("file", ""))
+            message = re.sub(r"<[^>]+>", "", p.get("description", "")).replace("#loc", "").strip()
             if path.startswith("build/"):
                 skipped["generated build output"] += 1
-            elif inspection in known:
-                skipped[inspection] += 1
+            elif inspection == "UndefinedParamsPresent":
+                skipped["GitHub Actions inputs"] += 1
+            elif inspection.startswith("Grazie") and BRITISH_SPELLING.search(message):
+                skipped["British spellings"] += 1
             elif (path, inspection) in ACCEPTED:
                 skipped["accepted"] += 1
             else:
-                message = re.sub(r"<[^>]+>", "", p.get("description", "")).replace("#loc", "").strip()
                 problems.append((path, int(p.get("line") or 0), inspection, message))
+
+# A file IntelliJ failed to inspect looks exactly like a clean one in the results, so the log
+# is checked for such failures and they are reported as errors.
+not_inspected = set()
+if os.path.exists(ide_log):
+    with open(ide_log, errors="replace") as f:
+        for line in f:
+            match = re.search(r"SEVERE .*GlobalInspectionContextImpl - In file: (\S+)", line)
+            if match:
+                not_inspected.add(match.group(1).split("/dokiments-api/", 1)[-1])
 
 for path, line, inspection, message in sorted(problems):
     print(f"{path}:{line}  [{inspection}] {message}")
@@ -99,4 +143,10 @@ print(f"\n{len(problems)} problem(s)." if problems else "\nNo problems.")
 if skipped:
     print("Not listed (known not to apply, see the top of this script): "
           + ", ".join(f"{n} {k}" for k, n in sorted(skipped.items())))
+if not_inspected:
+    print("\nIntelliJ failed while inspecting these files, so their results are incomplete:", file=sys.stderr)
+    for path in sorted(not_inspected):
+        print(f"  {path}", file=sys.stderr)
+    sys.exit(2)
+sys.exit(1 if problems else 0)
 EOF

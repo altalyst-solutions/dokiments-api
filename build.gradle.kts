@@ -4,6 +4,20 @@ import org.gradle.api.tasks.testing.logging.TestExceptionFormat
 import org.gradle.api.tasks.testing.logging.TestLogEvent
 import org.springframework.boot.gradle.plugin.SpringBootPlugin
 
+// Security override for the build's own tooling, not the application: the Spring Boot Gradle
+// plugin brings in commons-lang3 3.16.0, which has CVE-2025-48924 (fixed in 3.18.0). It only runs
+// inside Gradle while building, but there's no reason to keep a known-vulnerable version.
+// Remove once the plugin ships a fixed version.
+buildscript {
+    dependencies {
+        constraints {
+            classpath(libs.commons.lang3) {
+                because("CVE-2025-48924: uncontrolled recursion in versions before 3.18.0")
+            }
+        }
+    }
+}
+
 plugins {
     java
     jacoco

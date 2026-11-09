@@ -24,6 +24,14 @@ spring:
       # Local Redis from compose.yaml unless REDIS_URL says otherwise.
       url: ${REDIS_URL:redis://localhost:6379}
 
+dokiments:
+  # Always the local emulator from compose.yaml, never a real project: require-emulator makes
+  # the application refuse to start otherwise.
+  firestore:
+    project-id: ${FIREBASE_PROJECT_ID:demo-dokiments}
+    emulator-host: ${FIRESTORE_EMULATOR_HOST:localhost:${FIRESTORE_EMULATOR_PORT:8085}}
+    require-emulator: true
+
 management:
   endpoint:
     health:

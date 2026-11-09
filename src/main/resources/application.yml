@@ -48,6 +48,13 @@ dokiments:
     document-sharing: ${DOCUMENT_SHARING_ENABLED:false}
     # Plan limits. On unless TIER_LOCKS_ENABLED=false, which is only meant for testing.
     tier-locks: ${TIER_LOCKS_ENABLED:true}
+  # Which Firestore to use (see com.dokiments.platform.firestore.FirestoreProperties for the
+  # safety rules). The project ID is required: deployed, it is the real Firebase project. The
+  # empty default is deliberate: Spring Boot keeps a missing variable as the literal text
+  # "${...}", which would look like a project ID, while an empty value is reported clearly.
+  firestore:
+    project-id: ${FIREBASE_PROJECT_ID:}
+    emulator-host: ${FIRESTORE_EMULATOR_HOST:}
 
 server:
   port: ${PORT:8080}
