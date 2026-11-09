@@ -118,6 +118,9 @@ Rules, enforced by `HexagonalArchitectureTest` (ArchUnit) and `ModularityTest` (
 - `src/test/resources/application-test.yml` is used by integration tests.
 - Required settings, such as `REDIS_URL`, have no default in the base configuration so a misconfigured deployment
   fails at startup.
+- Local development settings live in a git-ignored `.env`, read by Docker Compose and by the `dev` profile only.
+  Every setting has its default in `.env.example`. When adding one, add it to `.env.example` and to the "Local settings"
+  table in the README. Never read `.env` outside the `dev` profile, and never put secrets in it.
 
 ## Tests
 

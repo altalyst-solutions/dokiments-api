@@ -142,7 +142,8 @@ curl localhost:8080/actuator/health
 See [Running locally](#running-locally) for what this starts and how to work with it.
 
 > [!TIP]
-> No accounts, keys or `.env` files are needed. Everything local runs against containers and the Firestore emulator.
+> No accounts or keys are needed. Everything local runs against containers and the Firestore emulator. A `.env`
+> file is optional: see [Local settings](#local-settings).
 
 <details>
 <summary><strong>Behind a TLS-inspecting proxy</strong></summary>
@@ -185,8 +186,8 @@ see [Docker image](#docker-image).
 | --- | --- |
 | `Cannot connect to the Docker daemon` | Start Docker Desktop (or the Docker service on Linux) |
 | Integration tests fail with `Could not find a valid Docker environment` | Testcontainers can't reach Docker. In Docker Desktop, enable "Allow the default Docker socket to be used" (Settings, Advanced). With Colima or another runtime, set `DOCKER_HOST`. |
-| `Port 8080 was already in use` | Another program uses 8080. Run on another port: `PORT=8081 ./gradlew bootRun` |
-| `Bind for 0.0.0.0:8085 failed` | Port 8085 (Firestore emulator) is taken, often by containers left from an earlier run: `docker compose down` |
+| `Port 8080 was already in use` | Another program uses 8080. Set another port in `.env`, for example `PORT=8081` (see [Local settings](#local-settings)) |
+| `Bind for 0.0.0.0:8085 failed` | Port 8085 (Firestore emulator) is taken, often by containers left from an earlier run: `docker compose down`. Or set `FIRESTORE_EMULATOR_PORT` in `.env`. |
 | `Timeout waiting to lock ... cache` | The IDE is importing the project at the same time. Wait for it to finish and run again. |
 | `PKIX path building failed` | See "Behind a TLS-inspecting proxy" above |
 | `./gradlew build` fails on formatting | Run `./gradlew spotlessApply` |
@@ -209,7 +210,7 @@ flowchart LR
     run -. "starts and stops" .-> services
     subgraph services["compose.yaml"]
         redis[("Redis<br/>random host port")]
-        emulator[("Firestore emulator<br/>:8085")]
+        emulator[("Firestore emulator<br/>:8085, data kept")]
     end
     app --> redis
     app -. "not used by the code yet" .-> emulator
@@ -224,11 +225,29 @@ Check that it is up:
 curl localhost:8080/actuator/health
 ```
 
-If port 8080 is already in use on your machine, choose another one: `PORT=8081 ./gradlew bootRun`.
+If port 8080 is already in use on your machine, set `PORT=8081` (or any free port) in `.env`. See
+[Local settings](#local-settings).
 
 To keep Redis and the emulator running between application restarts, start them yourself with
 `docker compose up -d`. The application then uses them and leaves them running when it stops. Stop them with
 `docker compose down`.
+
+### Local data
+
+The Firestore emulator is the local database: nothing is read from or written to Cloud Firestore. Its data **is kept
+between restarts**, including stopping `bootRun`, `docker compose down` and restarting your computer. The emulator
+itself only holds data in memory, so `docker/firestore-emulator/start.sh` saves it to a Docker volume: once a minute
+while it runs (`FIRESTORE_SAVE_INTERVAL_SECONDS`), and once more when it stops. On start it loads the latest save.
+
+| You want to | Do this |
+| --- | --- |
+| Keep your data | Nothing: it is kept automatically |
+| Start again with an empty database | `docker compose down --volumes` |
+| See the saves | `docker compose exec firestore ls /data/exports` |
+
+If the emulator is stopped abruptly (Docker force-quit, a crash, power loss), changes since the last save can be lost:
+at most a minute with the default interval. Integration tests never use this data: they run against a fresh emulator
+of their own.
 
 ### Running the API as a container
 
@@ -238,7 +257,7 @@ To run the API itself as a Docker container, the way it runs when deployed:
 docker compose --profile full up --build
 ```
 
-The container uses the `prod` profile, so logs are JSON. `API_PORT` changes the host port (default 8080).
+The container uses the `prod` profile, so logs are JSON. `API_PORT` in `.env` changes the host port (default 8080).
 
 | Command | Starts |
 | --- | --- |
@@ -280,6 +299,32 @@ All configuration comes from environment variables, so the same image runs on an
 
 The base `application.yml` holds production-safe defaults, `application-dev.yml` local conveniences, and
 `application-prod.yml` what differs in production.
+
+### Local settings
+
+For local development, put your own values in a `.env` file in the project folder. Start from the example, which lists
+every setting with its default:
+
+```bash
+cp .env.example .env
+```
+
+`.env` is git-ignored, so it stays on your machine. Docker Compose reads it automatically, and so does the `dev`
+profile, so one file covers `./gradlew bootRun`, `docker compose up` and `docker compose --profile full up`. A value
+set as a real environment variable, such as `PORT=8090 ./gradlew bootRun`, still wins over the file.
+
+| Setting | Default | What it changes |
+| --- | --- | --- |
+| `PORT` | `8080` | Port of the API when running `./gradlew bootRun` |
+| `API_PORT` | `8080` | Host port of the API container (`--profile full`) |
+| `FIRESTORE_EMULATOR_PORT` | `8085` | Host port of the Firestore emulator |
+| `FIRESTORE_SAVE_INTERVAL_SECONDS` | `60` | How often the emulator saves local data |
+| `FIRESTORE_KEEP_SAVES` | `3` | How many emulator saves are kept (at least 1) |
+| `REDIS_URL` | not set | Use a different Redis instead of the one Docker Compose starts |
+
+Write one `KEY=value` per line, without quotes and without comments on the same line: both Docker Compose and Spring
+Boot read the file. Don't put secrets in it. Deployed containers never read `.env`; they get their settings from the
+platform.
 
 ### Endpoints
 

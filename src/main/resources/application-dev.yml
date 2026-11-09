@@ -1,6 +1,12 @@
 # Local development (`./gradlew bootRun` activates this profile).
 
 spring:
+  config:
+    # Local settings from .env in the project folder (see .env.example), such as PORT, so
+    # one file configures both bootRun and Docker Compose. `optional:` means a missing .env
+    # is fine, and `[.properties]` tells Spring Boot how to read it. Real environment
+    # variables still take precedence over values in the file.
+    import: optional:file:.env[.properties]
   main:
     # Spring Boot hides the banner whenever structured logging is configured, which the
     # base application.yml does for production. Locally the logs are plain text, so the
