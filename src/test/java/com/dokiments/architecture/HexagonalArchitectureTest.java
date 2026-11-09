@@ -121,6 +121,16 @@ class HexagonalArchitectureTest {
             .because("persistence and external clients know nothing about the web layer")
             .allowEmptyShould(true);
 
+    @ArchTest
+    static final ArchRule onlyOutboundAdaptersCallExternalServices = noClasses()
+            .that()
+            .resideOutsideOfPackages("com.dokiments..adapter.out..", "com.dokiments.platform..")
+            .should()
+            .dependOnClassesThat()
+            .resideInAnyPackage("org.springframework.web.client..", "java.net.http..")
+            .because("calls to external services belong in outbound adapters, which get timeouts and retries from"
+                    + " platform.http");
+
     // Platform and shared kernel
 
     @ArchTest

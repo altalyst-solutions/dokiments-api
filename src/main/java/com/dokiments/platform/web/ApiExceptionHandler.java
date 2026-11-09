@@ -21,6 +21,7 @@ import org.springframework.web.bind.MissingServletRequestParameterException;
 import org.springframework.web.bind.annotation.ExceptionHandler;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RestControllerAdvice;
+import org.springframework.web.client.ResourceAccessException;
 import org.springframework.web.method.annotation.HandlerMethodValidationException;
 import org.springframework.web.method.annotation.MethodArgumentTypeMismatchException;
 import org.springframework.web.servlet.resource.NoResourceFoundException;
@@ -134,6 +135,21 @@ class ApiExceptionHandler {
         return ResponseEntity.status(HttpStatus.UNSUPPORTED_MEDIA_TYPE)
                 .headers(exception.getHeaders())
                 .body(new ErrorBody(ErrorMessages.UNSUPPORTED_MEDIA_TYPE));
+    }
+
+    /**
+     * A call to an external service failed on the network outside the checks in {@code platform.http}. Calls made
+     * through Spring Boot's {@code RestClient.Builder} normally report a service that can't be reached as
+     * {@link UpstreamUnavailableException} already. This covers the rest, for example a response body that an adapter
+     * streams and that stops arriving, so such a failure is still answered with {@code 503} rather than {@code 500}.
+     *
+     * <p>Only the cause is logged: this exception's own message contains the full address, query included, which can
+     * hold a key.
+     */
+    @ExceptionHandler(ResourceAccessException.class)
+    ResponseEntity<ErrorBody> handleUpstreamIoFailure(ResourceAccessException exception) {
+        log.warn("Call to an external service failed", exception.getCause());
+        return respond(HttpStatus.SERVICE_UNAVAILABLE, UpstreamUnavailableException.DEFAULT_MESSAGE);
     }
 
     /**
