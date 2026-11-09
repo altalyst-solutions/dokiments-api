@@ -111,6 +111,18 @@ Rules, enforced by `HexagonalArchitectureTest` (ArchUnit) and `ModularityTest` (
 - An unreachable external service is `UpstreamUnavailableException` (`503`), never `401` or `400`.
 - Keep the generic messages in `platform.web.ErrorMessages` worded exactly as they are: the web app shows them.
 
+## Firestore
+
+- Firestore code lives only in `adapter.out` packages (the architecture tests reject it elsewhere). Inject the shared
+  `com.google.cloud.firestore.Firestore` bean; never create a client yourself.
+- Wait for every call with `platform.firestore.FirestoreCalls.await(...)`. An unreachable Firestore becomes
+  `UpstreamUnavailableException` (`503`) on its own. For expected rejections, catch `FirestoreCallException` and check
+  `code()`, for example `ALREADY_EXISTS` becomes a `ConflictException`.
+- Convert times with `FirestoreCalls.toTimestamp` and `toInstant`. Firestore keeps microseconds, not nanoseconds, and
+  these helpers make that explicit.
+- Locally and in tests, Firestore is always the emulator with the `demo-dokiments` project. Never change that to a
+  real project: `FirestoreProperties` refuses to start with one where the emulator is required.
+
 ## Comments
 
 - Comments explain **why**, in full sentences, with enough detail for someone new to the code. Don't restate what the
@@ -167,7 +179,7 @@ Rules, enforced by `HexagonalArchitectureTest` (ArchUnit) and `ModularityTest` (
 
 ## Git and versioning
 
-- Agents don't commit, push or open pull requests unless asked to.
+- Agents don't commit, push or open pull requests unless the user asks for it.
 - Trunk-based: `main` is the only long-lived branch and is always deployable. Work happens on short-lived branches
   merged through pull requests with a merge commit.
 - Branch names: `<type>/<short-description>`, for example `feat/newsletter-subscribe`.

@@ -213,7 +213,7 @@ flowchart LR
         emulator[("Firestore emulator<br/>:8085, data kept")]
     end
     app --> redis
-    app -. "not used by the code yet" .-> emulator
+    app --> emulator
 ```
 
 Spring Boot DevTools restarts the application automatically whenever compiled classes change. IDEs compile on save;
@@ -237,7 +237,7 @@ To keep Redis and the emulator running between application restarts, start them 
 The Firestore emulator is the local database: nothing is read from or written to Cloud Firestore. Its data **is kept
 between restarts**, including stopping `bootRun`, `docker compose down` and restarting your computer. The emulator
 itself only holds data in memory, so `docker/firestore-emulator/start.sh` saves it to a Docker volume: once a minute
-while it runs (`FIRESTORE_SAVE_INTERVAL_SECONDS`), and once more when it stops. On start it loads the latest save.
+while it runs (`FIRESTORE_SAVE_INTERVAL_SECONDS`), and once more when it stops. On start, it loads the latest save.
 
 | You want to | Do this |
 | --- | --- |
@@ -311,8 +311,10 @@ the command line. It takes about a minute, works while the IDE is open, and does
 scripts/inspect.sh
 ```
 
-It should print `No problems.` A few findings that don't apply to this project are left out, with the reason for each
-at the top of the script.
+It should print `No problems.` and exit with `0`. It exits with `1` when it finds problems, and with `2` when IntelliJ
+couldn't inspect part of the project, so a run that quietly checked less is never mistaken for a clean one. It needs
+the project to have been opened in IntelliJ once, so it knows which JDK the project uses. A few findings that don't
+apply to this project are left out, with the reason for each at the top of the script.
 
 ## Configuration
 
@@ -322,12 +324,19 @@ All configuration comes from environment variables, so the same image runs on an
 | --- | --- | --- |
 | `REDIS_URL` | Yes, outside `dev` | Redis connection, for example `redis://host:6379` or `rediss://user:password@host:6379` for TLS. The application refuses to start without it. In `dev` it defaults to the Compose service. |
 | `PORT` | No | HTTP port. Defaults to `8080`. |
+| `FIREBASE_PROJECT_ID` | Yes, outside `dev` | Firebase project holding the Firestore database. In `dev` and tests it is `demo-dokiments` on the emulator. |
+| `FIRESTORE_EMULATOR_HOST` | No | `host:port` of a Firestore emulator to use instead of the real Firestore. Only allowed with a `demo-` project ID. |
+| `GOOGLE_APPLICATION_CREDENTIALS` | Outside Google Cloud | Path to service account credentials for Firestore. On Cloud Run, the attached service account is used instead, so no file is needed. |
 | `SPRING_PROFILES_ACTIVE` | No | `prod` in the Docker image, `dev` for `bootRun`. |
 | `DOCUMENT_SHARING_ENABLED` | No | `true` turns on sharing documents for signature. Off by default; while off, the sharing endpoints answer `404`. |
 | `TIER_LOCKS_ENABLED` | No | `false` stops enforcing plan limits. On by default; only switch it off for testing. |
 
 The base `application.yml` holds production-safe defaults, `application-dev.yml` local conveniences, and
 `application-prod.yml` what differs in production.
+
+The application checks its Firestore settings at start-up and refuses to start with a combination that could reach
+the wrong database: the emulator only runs with a `demo-` project ID (a prefix no real project can have), and in `dev`
+and tests the emulator is required, so a laptop can never read or write real data.
 
 ### Local settings
 
@@ -438,7 +447,7 @@ flowchart LR
 Modules only use each other's public API: a module's base package. `HexagonalArchitectureTest` (ArchUnit) and
 `ModularityTest` (Spring Modulith) enforce these rules on every build.
 
-The full set of conventions is in [.github/copilot-instructions.md](.github/copilot-instructions.md). It is written
+The full set of conventions is in [the agent instructions](.github/copilot-instructions.md). It is written
 for AI coding agents (GitHub Copilot reads it directly, and `CLAUDE.md` imports it for Claude Code), and is just as
 useful as a contributor guide.
 
