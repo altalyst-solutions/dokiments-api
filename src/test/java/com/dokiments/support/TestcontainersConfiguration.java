@@ -12,8 +12,10 @@ import org.testcontainers.containers.GenericContainer;
 @TestConfiguration(proxyBeanMethods = false)
 public class TestcontainersConfiguration {
 
+    // Spring starts and stops the container with the test context, so it isn't closed here.
     @Bean
     @ServiceConnection(name = "redis")
+    @SuppressWarnings("resource")
     GenericContainer<?> redisContainer() {
         return new GenericContainer<>(TestImages.REDIS).withExposedPorts(6379);
     }
