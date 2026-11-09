@@ -6,3 +6,9 @@ spring:
       # The base config requires REDIS_URL. Tests get Redis from Testcontainers through
       # @ServiceConnection, which takes precedence over this placeholder value.
       url: redis://overridden-by-testcontainers:6379
+
+dokiments:
+  firestore:
+    # The emulator host is set by TestcontainersConfiguration once its container has started.
+    project-id: demo-dokiments
+    require-emulator: true
