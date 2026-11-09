@@ -136,6 +136,9 @@ ACCEPTED = {
     ("README.md", "HtmlDeprecatedAttribute"),
     # The logo is a 512 px image shown at 96 px on purpose, so it stays sharp on dense screens.
     ("README.md", "CheckImageSize"),
+    # Email layout: mail clients, Outlook above all, ignore CSS for table layout and need the
+    # old width, align, valign and cellpadding attributes to lay an email out at all.
+    ("src/main/resources/email/layout.html", "HtmlDeprecatedAttribute"),
 }
 
 problems, skipped = [], Counter()
