@@ -34,10 +34,42 @@ memory for names: check the jars in the Gradle cache or the official docs before
 | Build the image | `docker build -t dokiments-api .` |
 | IntelliJ inspections (needs IntelliJ IDEA) | `scripts/inspect.sh` |
 
-Before saying a change is done, run `./gradlew spotlessApply`, then `./gradlew build`, then `scripts/inspect.sh` when
-IntelliJ IDEA is available, and fix every problem they report. The build treats every compiler and Error Prone warning
-as an error, so don't silence one to make it pass: fix the code. Suppress a finding (`@SuppressWarnings`) only when it
-is a false positive, with a comment explaining why, for example a field that a framework reads by reflection.
+## Finding and fixing problems
+
+Developers see problems in their editor's Problems view, which you usually can't. Check for them yourself as you work
+and before saying a change is done:
+
+1. `./gradlew spotlessApply`.
+2. `./gradlew build`. It runs the formatting check, every compiler warning, Error Prone, NullAway, the architecture
+   tests and both test suites, and fails on any of them. This is the reference: CI runs exactly this.
+3. `scripts/inspect.sh`, when IntelliJ IDEA is installed. It runs IntelliJ's own inspections (Spring configuration,
+   YAML, Gradle scripts, Markdown, spelling), which the build doesn't cover. Exit code `1` means problems were found;
+   `2` means part of the project couldn't be inspected, which you must report, never treat as clean. Where IntelliJ
+   isn't available (for example in WSL, or in CI), say that this step was skipped.
+4. Fix every problem and repeat until all of them are clean.
+
+The build treats every compiler and Error Prone warning as an error, so don't silence one to make it pass: fix the
+code. Suppress a finding (`@SuppressWarnings`) only when it is a false positive, with a comment explaining why, for
+example a field that a framework reads by reflection. Add to the `ACCEPTED` list in `scripts/inspect.sh` only with a
+reason. Watch for fixes that trade one finding for another.
+
+Don't trust a quiet checker. If a check reports nothing where you expected a finding, find out why before relying on
+it.
+
+## Documentation
+
+Developer documentation lives in `docs/`, with `README.md` as the front page and index. When a change adds or changes
+a command, convention or setting, update the guide that covers it:
+
+- `docs/getting-started.md`: installing the tools on macOS, Linux and Windows (WSL 2), troubleshooting.
+- `docs/ide-setup.md`: IntelliJ IDEA and VS Code.
+- `docs/local-development.md`: running locally, local data, containers, the Docker image.
+- `docs/configuration.md`: environment variables, profiles, `.env`, endpoints, error responses.
+- `docs/testing-and-quality.md`: tests, the build's checks, inspections, CI.
+- `docs/architecture.md`: modules and the hexagonal layout.
+- `docs/contributing.md`: branches, commits, pull requests, versioning.
+
+Keep the README short: it links to the guides rather than repeating them.
 
 ## Architecture
 
@@ -154,7 +186,7 @@ Rules, enforced by `HexagonalArchitectureTest` (ArchUnit) and `ModularityTest` (
   environment variable and its default mapped in `application.yml`. Read settings from there, not with `@Value`.
 - Local development settings live in a git-ignored `.env`, read by Docker Compose and by the `dev` profile only.
   Every setting has its default in `.env.example`. When adding one, add it to `.env.example` and to the "Local settings"
-  table in the README. Never read `.env` outside the `dev` profile, and never put secrets in it.
+  table in `docs/configuration.md`. Never read `.env` outside the `dev` profile, and never put secrets in it.
 
 ## Tests
 

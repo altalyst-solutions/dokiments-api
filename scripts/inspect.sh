@@ -1,18 +1,26 @@
 #!/usr/bin/env bash
 #
 # Runs IntelliJ IDEA's code inspections on the whole project from the command line and lists
-# the problems by file, the same ones the editor shows. Use it before opening a pull request,
-# for what the build itself can't check: Spring configuration, YAML, Gradle scripts, docs.
+# the problems by file, the same ones the editor shows. It covers what the build itself can't
+# check: Spring configuration, YAML, Gradle scripts, docs.
 #
 #   scripts/inspect.sh
 #
-# It exits with 1 when it finds problems, and with 2 when IntelliJ couldn't inspect part of
-# the project, so a run that silently checked less is never mistaken for a clean one.
+# It is meant mainly for AI agents, which can't see the editor, so they can find and fix these
+# problems as they work. Developers see the same findings in IntelliJ's Problems view, and can
+# run this too.
+#
+# It exits with 1 when it finds problems, and with 2 when IntelliJ isn't found or couldn't
+# inspect part of the project, so a run that silently checked less is never mistaken for a
+# clean one.
 #
 # Needs IntelliJ IDEA installed and the project opened in it at least once (so it knows which
 # JDK the project uses). It runs with its own temporary settings, so it works while the IDE is
-# open and doesn't change your IDE settings. Set IDEA_HOME if IntelliJ isn't in
-# /Applications/IntelliJ IDEA.app, and IDEA_CONFIG if your IDE settings folder isn't found.
+# open and doesn't change your IDE settings. It looks for IntelliJ in its usual places on macOS
+# and Linux, including installs made with the JetBrains Toolbox. Set IDEA_HOME to IntelliJ's
+# install folder (on macOS, the app's Contents folder) if it isn't found, and IDEA_CONFIG if
+# your IDE settings folder isn't found. In WSL, IntelliJ runs on the Windows side and can't be
+# used from here.
 #
 # Some findings are known not to apply here and are listed separately at the end instead of
 # with the problems:
@@ -26,12 +34,35 @@
 set -euo pipefail
 
 project_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
-idea_home="${IDEA_HOME:-/Applications/IntelliJ IDEA.app/Contents}"
+# The first IntelliJ install found in the usual places, newest version first where there are
+# several (the JetBrains Toolbox keeps one folder per version on Linux).
+find_idea_home() {
+  local candidate
+  for candidate in \
+    "/Applications/IntelliJ IDEA.app/Contents" \
+    "/Applications/IntelliJ IDEA Ultimate.app/Contents" \
+    "/Applications/IntelliJ IDEA CE.app/Contents" \
+    "$HOME/Applications/IntelliJ IDEA.app/Contents" \
+    "$HOME/Applications/IntelliJ IDEA Ultimate.app/Contents" \
+    "$HOME/Applications/IntelliJ IDEA CE.app/Contents" \
+    $(compgen -G "$HOME/.local/share/JetBrains/Toolbox/apps/intellij-idea*" | sort -rV) \
+    /snap/intellij-idea/current \
+    /snap/intellij-idea-ultimate/current \
+    /snap/intellij-idea-community/current \
+    /opt/idea*; do
+    if [[ -x "$candidate/bin/inspect.sh" ]]; then
+      echo "$candidate"
+      return
+    fi
+  done
+}
+idea_home="${IDEA_HOME:-$(find_idea_home)}"
 inspect="${idea_home}/bin/inspect.sh"
 
-if [[ ! -x "$inspect" ]]; then
-  echo "IntelliJ IDEA not found at ${idea_home}. Set IDEA_HOME to its Contents folder (macOS) or install folder." >&2
-  exit 1
+if [[ -z "$idea_home" || ! -x "$inspect" ]]; then
+  echo "IntelliJ IDEA not found${idea_home:+ at ${idea_home}}." >&2
+  echo "Set IDEA_HOME to its install folder (on macOS, the app's Contents folder)." >&2
+  exit 2
 fi
 
 # The newest IntelliJ settings folder, for the JDK definitions below.
