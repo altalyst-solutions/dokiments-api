@@ -1,17 +1,9 @@
 {
-  // Java formatting is owned by Spotless (palantir-java-format), which VS Code can't run
-  // on save. Formatting with VS Code's own Java formatter would produce a different layout,
-  // so it stays off: run `./gradlew spotlessApply` before committing instead.
   "[java]": {
     "editor.formatOnSave": false,
     "editor.rulers": [120]
   },
-
-  // Same import order as palantir-java-format (static imports first, then everything else
-  // in one alphabetical block), so organising imports doesn't fight Spotless.
   "java.completion.importOrder": ["#", ""],
-
-  // Re-import the Gradle project automatically when build files change.
   "java.configuration.updateBuildConfiguration": "automatic",
   "java.import.gradle.wrapper.enabled": true
 }

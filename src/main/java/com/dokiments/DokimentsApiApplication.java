@@ -16,7 +16,7 @@ import org.springframework.modulith.Modulithic;
 @Modulithic(sharedModules = "shared")
 public class DokimentsApiApplication {
 
-    public static void main(String[] args) {
+    static void main(String[] args) {
         SpringApplication.run(DokimentsApiApplication.class, args);
     }
 }
