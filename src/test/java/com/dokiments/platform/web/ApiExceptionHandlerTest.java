@@ -28,6 +28,7 @@ import org.springframework.web.bind.annotation.PostMapping;
 import org.springframework.web.bind.annotation.RequestBody;
 import org.springframework.web.bind.annotation.RequestParam;
 import org.springframework.web.bind.annotation.RestController;
+import org.springframework.web.client.ResourceAccessException;
 
 /**
  * Checks that every kind of failure is answered with the status code and exact body the web app expects.
@@ -53,6 +54,7 @@ class ApiExceptionHandlerTest {
         "not-found, 404, Document not found.",
         "conflict, 409, This document is not shared with anyone.",
         "upstream-unavailable, 503, Couldn't reach an external service. Please try again in a moment.",
+        "upstream-io, 503, Couldn't reach an external service. Please try again in a moment.",
     })
     void applicationExceptionsKeepTheirMessageAndGetTheirStatus(String path, int status, String message) {
         assertThat(mvc.get().uri("/probe/fail/{path}", path))
@@ -189,6 +191,8 @@ class ApiExceptionHandlerTest {
                 case "not-found" -> new NotFoundException("Document not found.");
                 case "conflict" -> new ConflictException("This document is not shared with anyone.");
                 case "upstream-unavailable" -> new UpstreamUnavailableException(new ConnectException("refused"));
+                case "upstream-io" ->
+                    new ResourceAccessException("I/O error on GET request for \"https://x.test?key=k\"");
                 default -> new IllegalStateException("internal detail that must not reach the client");
             };
         }

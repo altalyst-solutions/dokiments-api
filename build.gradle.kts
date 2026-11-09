@@ -68,6 +68,9 @@ dependencies {
     implementation(libs.spring.boot.starter.webmvc)
     implementation(libs.spring.boot.starter.validation)
 
+    // Calls to external services (Firebase Auth, Google, Resend)
+    implementation(libs.spring.boot.starter.restclient)
+
     // Security & sessions
     implementation(libs.spring.boot.starter.security)
     implementation(libs.spring.boot.starter.data.redis)

@@ -80,8 +80,8 @@ Each direct sub-package of `com.dokiments` is a module, verified by Spring Modul
 - Feature modules: `auth`, `users`, `documents`, `sharing`, `clients`, `templates`, `notifications`, `feedback`,
   `promo`, `newsletter`.
 - `shared`: small value types every module may use (for example `UserId`, `Email`). Keep it minimal.
-- `platform`: technical setup only (security, configuration, error handling, Firestore, email). It must never depend
-  on a feature module.
+- `platform`: technical setup only (security, configuration, error handling, Firestore, HTTP clients, email). It
+  must never depend on a feature module.
 
 Packages inside a feature module `com.dokiments.<module>`:
 
@@ -154,6 +154,20 @@ Rules, enforced by `HexagonalArchitectureTest` (ArchUnit) and `ModularityTest` (
   these helpers make that explicit.
 - Locally and in tests, Firestore is always the emulator with the `demo-dokiments` project. Never change that to a
   real project: `FirestoreProperties` refuses to start with one where the emulator is required.
+
+## Calling external services
+
+- Calls to external services (Firebase Auth's REST API, Google sign-in, Resend) live only in `adapter.out` packages
+  (the architecture tests reject them elsewhere). Inject Spring Boot's `RestClient.Builder`, set the base URL and
+  build the client. Never create an HTTP client yourself (`RestClient.create()`, `HttpClient.newHttpClient()`): it
+  would miss the timeouts and retries.
+- `platform.http` applies these to every client from the builder: per-attempt and total time limits, retries only
+  when sending again is certainly safe, and a service that can't be reached or answers `5xx` or `429` becomes
+  `UpstreamUnavailableException` (`503`) on its own. Don't add retries of your own.
+- Handle the `4xx` answers that mean something for the service with `onStatus(...)`, for example Firebase's
+  `INVALID_LOGIN_CREDENTIALS` becomes an `UnauthenticatedException`. An unhandled one is a bug and answers `500`.
+- Never put keys or tokens in the URL: send them in a header (for Google APIs, `X-Goog-Api-Key`). URLs end up in
+  logs and exception messages.
 
 ## Comments
 

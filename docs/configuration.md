@@ -39,6 +39,23 @@ the wrong database:
 Required settings, such as `REDIS_URL` and `FIREBASE_PROJECT_ID`, have no default outside `dev`, so a misconfigured
 deployment stops at start-up with a message naming the missing setting.
 
+## Calls to external services
+
+Every call to an external service (Firebase Auth, Google sign-in, Resend) follows the same rules, set in
+`platform.http`:
+
+- A connection must be set up within 2 seconds. One attempt may take 3 seconds for a `GET` or `HEAD` and 5 seconds for
+  other requests, including reading the whole response. A call never takes more than 8 seconds in total.
+- A request is only sent again when that is certainly safe: when it never left the application (the address couldn't
+  be resolved, the connection was refused or couldn't be set up in time), up to 3 attempts, or once when a `GET` or
+  `HEAD` timed out. A request that may have reached the service, such as a timed-out `POST`, is never sent twice.
+  The waits between attempts start at 150 ms and triple each time, give or take a random quarter.
+- A service that can't be reached, is failing (`5xx`) or asks us to slow down (`429`) is answered with `503`, so the
+  web app knows to try again.
+
+The defaults rarely need changing, and aren't in `.env.example`. If they must, they are settings under
+`dokiments.http` (for example `DOKIMENTS_HTTP_TOTAL_TIMEOUT=10s`), described in `HttpClientProperties`.
+
 ## Local settings
 
 For local development, put your own values in a `.env` file in the project folder. Start from the example, which lists

@@ -50,6 +50,7 @@ flowchart LR
 | Data | Firestore, through the Firebase Admin SDK |
 | Authentication | Firebase Auth |
 | Sessions | HttpOnly cookies backed by Redis (Spring Session) |
+| External services | Spring `RestClient` on the JDK HTTP client, with shared timeouts and safe retries |
 | Architecture | Modular monolith in hexagonal style, checked by Spring Modulith and ArchUnit |
 | Code quality | Spotless (palantir-java-format), Error Prone, NullAway with JSpecify, JaCoCo |
 | Tests | JUnit, AssertJ, Testcontainers (Redis and the Firestore emulator) |
