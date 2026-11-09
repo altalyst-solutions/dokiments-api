@@ -1,0 +1,9 @@
+[(${signerName})] signed your document
+
+[(${signerName})] signed "[(${documentName})]" on [(${signedAt})].
+
+The document is now locked, so it can no longer be changed. Open it to see the signed copy.
+
+Open document: [(${url})]
+
+[# th:insert="~{footer.txt}" /]

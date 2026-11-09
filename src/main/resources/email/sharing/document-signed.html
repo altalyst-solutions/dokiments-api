@@ -1,0 +1,30 @@
+<!DOCTYPE html>
+<!--/*
+  Sent to the owner of a shared document when the recipient signs it. It says who signed and when, never the
+  signature itself.
+
+  Values: signerName and documentName (already cleaned with EmailLabels), signedAt (formatted with
+  EmailLabels.utcTime) and url (the shared document in the web app).
+*/-->
+<html lang="en" xmlns:th="http://www.thymeleaf.org" th:remove="tag">
+<!--/*@thymesVar id="signerName" type="java.lang.String"*/-->
+<!--/*@thymesVar id="documentName" type="java.lang.String"*/-->
+<!--/*@thymesVar id="signedAt" type="java.lang.String"*/-->
+<!--/*@thymesVar id="url" type="java.lang.String"*/-->
+<th:block th:replace="~{layout.html :: email(
+    heading=|${signerName} signed your document|,
+    content=~{::content},
+    actionLabel='Open document',
+    actionUrl=${url})}"/>
+<!--/* The email's own content, which the layout inserts. Not output here. */-->
+<th:block th:remove="all">
+<div th:fragment="content">
+  <p style="margin:0 0 16px;" th:text="|${signerName} signed &quot;${documentName}&quot; on ${signedAt}.|">
+    Bob signed "Service agreement" on 31 Oct 2026, 21:30 UTC.
+  </p>
+  <p style="margin:0 0 16px;">
+    The document is now locked, so it can no longer be changed. Open it to see the signed copy.
+  </p>
+</div>
+</th:block>
+</html>

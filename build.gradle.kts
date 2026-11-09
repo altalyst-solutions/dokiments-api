@@ -71,6 +71,9 @@ dependencies {
     // Calls to external services (Firebase Auth, Google, Resend)
     implementation(libs.spring.boot.starter.restclient)
 
+    // Email templates. Only Thymeleaf's engine, not the web starter: the API renders no web pages.
+    implementation(libs.thymeleaf.spring6)
+
     // Security & sessions
     implementation(libs.spring.boot.starter.security)
     implementation(libs.spring.boot.starter.data.redis)

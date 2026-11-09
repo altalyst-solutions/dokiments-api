@@ -169,6 +169,21 @@ Rules, enforced by `HexagonalArchitectureTest` (ArchUnit) and `ModularityTest` (
 - Never put keys or tokens in the URL: send them in a header (for Google APIs, `X-Goog-Api-Key`). URLs end up in
   logs and exception messages.
 
+## Email
+
+- Send email only through `platform.email.EmailSender`, from an outbound adapter called by a listener reacting to a
+  domain event, never inline in a use case. `send` never throws: it returns `EmailResult.Sent` or `NotSent` with a
+  reason, and a failed email must never fail the action that caused it.
+- Each email has two templates in `src/main/resources/email/`, `<name>.html` and `<name>.txt`, built on `layout.html`
+  and `footer.txt`. Keep to what mail clients support: tables for layout, inline styles only, absolute links, no SVG.
+  Comments in templates use `<!--/* ... */-->`, so they are removed instead of being sent.
+- Clean anything a user typed with `EmailLabels.clean` (or `EmailLabels.person`) before it goes into a subject or an
+  email, and format times with `EmailLabels.utcTime`.
+- Give every email an idempotency key from `IdempotencyKeys.hashed(...)`, built from what makes it unique, never from
+  the time of sending.
+- Never log full email addresses or email contents outside `dev`.
+- Locally and in tests, only the allow list receives email (`restrict-recipients`). Never change that.
+
 ## Comments
 
 - Comments explain **why**, in full sentences, with enough detail for someone new to the code. Don't restate what the

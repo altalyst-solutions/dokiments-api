@@ -1,0 +1,87 @@
+<!DOCTYPE html>
+<!--/*
+  The shared shell of every email: logo, heading, body, an optional button and the footer.
+
+  Use it from an email's template with th:replace, passing the email's own content as a fragment:
+
+    <html th:replace="~{layout.html :: email(heading=${...}, content=~{::content}, actionLabel='Open document',
+                                             actionUrl=${url})}">
+
+  Mail clients are far less capable than browsers, so this keeps to what they all support: tables for layout, inline
+  styles only (most clients drop <style> blocks and classes), a hosted PNG for the logo (many block SVG) and absolute
+  links. It asks clients not to switch colours in dark mode, so it always looks as designed; the gold tile keeps the
+  black logo readable either way.
+
+  Colours match the web app's theme: #141414 (text, button), #ffd066 (logo tile), #f6f6f6 (background).
+
+  The @thymesVar comments below tell the IDE which values the template uses; they aren't sent.
+*/-->
+<html lang="en" xmlns:th="http://www.thymeleaf.org"
+      th:fragment="email(heading, content, actionLabel, actionUrl)">
+<!--/*@thymesVar id="subject" type="java.lang.String"*/-->
+<!--/*@thymesVar id="siteName" type="java.lang.String"*/-->
+<!--/*@thymesVar id="siteOrigin" type="java.lang.String"*/-->
+<!--/*@thymesVar id="siteHost" type="java.lang.String"*/-->
+<!--/*@thymesVar id="logoUrl" type="java.lang.String"*/-->
+<!--/*@thymesVar id="heading" type="java.lang.String"*/-->
+<!--/*@thymesVar id="actionLabel" type="java.lang.String"*/-->
+<!--/*@thymesVar id="actionUrl" type="java.lang.String"*/-->
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="color-scheme" content="light">
+  <meta name="supported-color-schemes" content="light">
+  <title th:text="${subject}">Subject</title>
+  <!--/* Urbanist and Raleway, as in the app, where the client loads web fonts (for example Apple Mail). */-->
+  <link href="https://fonts.googleapis.com/css2?family=Raleway:wght@900&amp;family=Urbanist:wght@400;600;700&amp;display=swap"
+        rel="stylesheet">
+</head>
+<body style="background-color:#f6f6f6;font-family:Urbanist,Arial,Helvetica,sans-serif;margin:0;padding:24px 12px;">
+<!--/* The inbox preview next to the subject. Hidden in the email itself. */-->
+<div style="display:none;max-height:0;overflow:hidden;opacity:0;" th:text="${subject}">Preview</div>
+<table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0">
+  <tr>
+    <td align="center">
+      <table role="presentation" width="100%" cellpadding="0" cellspacing="0" border="0"
+             style="background-color:#ffffff;border:2px solid #141414;border-radius:12px;max-width:560px;">
+        <tr>
+          <td style="padding:32px;">
+            <table role="presentation" cellpadding="0" cellspacing="0" border="0">
+              <tr>
+                <td width="44" height="44" align="center" valign="middle"
+                    style="background-color:#ffd066;border-radius:10px;width:44px;height:44px;">
+                  <img th:src="${logoUrl}" src="https://www.dokiments.com/icons/icon-192.png" alt="" width="28"
+                       height="28" style="display:block;margin:0 auto;border:0;">
+                </td>
+                <td valign="middle" style="padding-left:12px;">
+                  <p style="color:#141414;font-family:Raleway,Arial,Helvetica,sans-serif;font-size:22px;font-weight:900;line-height:28px;margin:0;"
+                     th:text="${siteName}">Dokiments</p>
+                </td>
+              </tr>
+            </table>
+            <p style="color:#141414;font-size:24px;font-weight:700;line-height:30px;margin:28px 0 16px;"
+               th:text="${heading}">Heading</p>
+            <div style="color:#141414;font-size:15px;line-height:24px;" th:insert="${content}">Content</div>
+            <table th:if="${actionUrl != null}" role="presentation" cellpadding="0" cellspacing="0" border="0"
+                   style="margin:24px 0 0;">
+              <tr>
+                <td style="background-color:#141414;border-radius:8px;">
+                  <a th:href="${actionUrl}" th:text="${actionLabel}" href="https://dokiments.com"
+                     style="color:#ffffff;display:inline-block;font-size:14px;font-weight:600;line-height:20px;padding:12px 20px;text-decoration:none;">Action</a>
+                </td>
+              </tr>
+            </table>
+            <p style="color:#6b6b6b;font-size:12px;line-height:18px;margin:32px 0 0;">
+              You received this email because of activity on your <span th:text="${siteName}">Dokiments</span>
+              account.
+              <a th:href="${siteOrigin}" th:text="${siteHost}" href="https://www.dokiments.com"
+                 style="color:#6b6b6b;text-decoration:underline;">www.dokiments.com</a>
+            </p>
+          </td>
+        </tr>
+      </table>
+    </td>
+  </tr>
+</table>
+</body>
+</html>

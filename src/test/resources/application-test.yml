@@ -12,3 +12,7 @@ dokiments:
     # The emulator host is set by TestcontainersConfiguration once its container has started.
     project-id: demo-dokiments
     require-emulator: true
+  # Tests never send real email: no Resend key, and recipients restricted in case one is set.
+  email:
+    resend-api-key: ""
+    restrict-recipients: true
