@@ -39,6 +39,10 @@ dokiments:
     site-url: ${SITE_URL:http://localhost:3000}
 
 management:
+  tracing:
+    sampling:
+      # Every local request is traced, so it shows up in Jaeger (see compose.yaml).
+      probability: 1.0
   endpoint:
     health:
       # Show which dependency is down while developing.

@@ -75,6 +75,21 @@ server:
   forward-headers-strategy: framework
 
 management:
+  # Traces and metrics are exported with OTLP to a collector, configured with the standard
+  # OpenTelemetry variables, which Spring Boot reads: OTEL_EXPORTER_OTLP_ENDPOINT (for example
+  # http://collector:4318), OTEL_SERVICE_NAME, OTEL_RESOURCE_ATTRIBUTES and OTEL_TRACES_SAMPLER_ARG.
+  # Traces are only exported once an endpoint is set.
+  otlp:
+    metrics:
+      export:
+        # Metrics would otherwise be pushed to localhost:4318 every minute and log a failure each
+        # time. OTEL_METRICS_EXPORTER=otlp switches them on.
+        enabled: false
+  tracing:
+    sampling:
+      # One request in ten is kept. Every request still gets a trace ID for its logs and the
+      # X-Trace-Id header; OTEL_TRACES_SAMPLER_ARG changes the share.
+      probability: 0.1
   endpoints:
     web:
       exposure:
@@ -97,3 +112,9 @@ logging:
       # One JSON object per line on stdout (Elastic Common Schema), readable by
       # any log platform.
       console: ecs
+    json:
+      rename:
+        # The trace of the request a line belongs to, under the names ECS defines, so log
+        # platforms can link log lines and traces. It is also in the X-Trace-Id response header.
+        traceId: trace.id
+        spanId: span.id

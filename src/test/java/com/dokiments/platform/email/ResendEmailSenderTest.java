@@ -5,6 +5,8 @@ import static org.assertj.core.api.Assertions.assertThat;
 import com.dokiments.platform.http.HttpClientProperties;
 import com.sun.net.httpserver.HttpExchange;
 import com.sun.net.httpserver.HttpServer;
+import io.micrometer.core.instrument.MeterRegistry;
+import io.micrometer.core.instrument.simple.SimpleMeterRegistry;
 import java.io.IOException;
 import java.net.InetAddress;
 import java.net.InetSocketAddress;
@@ -25,6 +27,7 @@ import org.springframework.boot.http.converter.autoconfigure.HttpMessageConverte
 import org.springframework.boot.jackson.autoconfigure.JacksonAutoConfiguration;
 import org.springframework.boot.restclient.autoconfigure.RestClientAutoConfiguration;
 import org.springframework.boot.test.context.runner.ApplicationContextRunner;
+import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.ComponentScan;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.context.annotation.Import;
@@ -141,6 +144,29 @@ class ResendEmailSenderTest {
     }
 
     @Test
+    void eachEmailIsCountedByTemplateAndResult() {
+        context("dokiments.email.restrict-recipients=true", "dokiments.email.allow-list=tester@example.com")
+                .run(app -> {
+                    var sender = app.getBean(EmailSender.class);
+                    sender.send(signedEmail("tester@example.com"));
+                    sender.send(signedEmail("customer@example.com"));
+                    sender.send(signedEmail("customer@example.com"));
+
+                    var registry = app.getBean(MeterRegistry.class);
+                    assertThat(count(registry, "sent")).isEqualTo(1);
+                    assertThat(count(registry, "blocked")).isEqualTo(2);
+                });
+    }
+
+    private static double count(MeterRegistry registry, String result) {
+        return registry.get("dokiments.emails")
+                .tag("template", "sharing/document-signed")
+                .tag("result", result)
+                .counter()
+                .count();
+    }
+
+    @Test
     void addressesInTheLogsAreMasked() {
         assertThat(ResendEmailSender.mask("jane@example.com")).isEqualTo("j***@example.com");
         assertThat(ResendEmailSender.mask("no-at-sign")).isEqualTo("***");
@@ -197,5 +223,11 @@ class ResendEmailSenderTest {
     @EnableConfigurationProperties({EmailProperties.class, HttpClientProperties.class})
     @Import(EmailConfiguration.class)
     @ComponentScan("com.dokiments.platform.http")
-    static class TestConfiguration {}
+    static class TestConfiguration {
+
+        @Bean
+        MeterRegistry meterRegistry() {
+            return new SimpleMeterRegistry();
+        }
+    }
 }
