@@ -80,6 +80,19 @@ services:
       firestore:
         condition: service_healthy
 
+  # Optional trace viewer for local development: docker compose --profile tracing up -d
+  # Then run the API with OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4318 and open
+  # http://localhost:16686. Traces are kept in memory only, until the container stops.
+  jaeger:
+    image: jaegertracing/jaeger:2.23.0
+    profiles: [tracing]
+    ports:
+      - "${JAEGER_UI_PORT:-16686}:16686"
+      - "${OTLP_PORT:-4318}:4318"
+    labels:
+      # Not one of the services the application connects to by itself.
+      org.springframework.boot.ignore: "true"
+
 secrets:
   # Optional root CA certificate for networks with a TLS-inspecting proxy (see the
   # Dockerfile). Set EXTRA_CA_PEM to the certificate's contents, for example

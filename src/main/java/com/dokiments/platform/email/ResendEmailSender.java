@@ -3,7 +3,10 @@ package com.dokiments.platform.email;
 import com.dokiments.shared.error.UpstreamUnavailableException;
 import com.fasterxml.jackson.annotation.JsonInclude;
 import com.fasterxml.jackson.annotation.JsonProperty;
+import io.micrometer.core.instrument.Counter;
+import io.micrometer.core.instrument.MeterRegistry;
 import java.util.List;
+import java.util.Locale;
 import java.util.regex.Pattern;
 import org.jspecify.annotations.Nullable;
 import org.slf4j.Logger;
@@ -28,10 +31,16 @@ final class ResendEmailSender implements EmailSender {
     private final EmailProperties properties;
     private final EmailTemplates templates;
     private final RestClient resend;
+    private final MeterRegistry meterRegistry;
 
-    ResendEmailSender(EmailProperties properties, EmailTemplates templates, RestClient.Builder restClientBuilder) {
+    ResendEmailSender(
+            EmailProperties properties,
+            EmailTemplates templates,
+            RestClient.Builder restClientBuilder,
+            MeterRegistry meterRegistry) {
         this.properties = properties;
         this.templates = templates;
+        this.meterRegistry = meterRegistry;
         this.resend = restClientBuilder
                 .baseUrl(properties.resendUrl())
                 .defaultHeader(HttpHeaders.AUTHORIZATION, "Bearer " + properties.resendApiKey())
@@ -40,6 +49,27 @@ final class ResendEmailSender implements EmailSender {
 
     @Override
     public EmailResult send(EmailMessage message) {
+        EmailResult result = deliver(message);
+        Counter.builder("dokiments.emails")
+                .description("Emails the application tried to send, by template and what happened")
+                .tag("template", message.template())
+                .tag("result", resultTag(result))
+                .register(meterRegistry)
+                .increment();
+        return result;
+    }
+
+    /**
+     * {@code sent}, or why not: {@code disabled}, {@code blocked}, {@code invalid_recipient}, {@code provider_error}.
+     */
+    static String resultTag(EmailResult result) {
+        return switch (result) {
+            case EmailResult.Sent _ -> "sent";
+            case EmailResult.NotSent notSent -> notSent.reason().name().toLowerCase(Locale.ROOT);
+        };
+    }
+
+    private EmailResult deliver(EmailMessage message) {
         String recipient = message.to();
         if (!PLAUSIBLE_ADDRESS.matcher(recipient).matches()) {
             log.warn("Email \"{}\" not sent: the recipient isn't a valid address", message.template());

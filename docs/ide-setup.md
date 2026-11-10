@@ -8,6 +8,7 @@ repository, so formatting and imports match the build without manual configurati
 | `.editorconfig` | Indentation, line endings and line length, for every editor |
 | `.idea/externalDependencies.xml` | IntelliJ asks to install the required plugins |
 | `.idea/palantir-java-format.xml` | Turns palantir-java-format on, so "Reformat Code" matches the build |
+| `.idea/inspectionProfiles/Project_Default.xml` | The project's inspection settings, shared by the editor and `scripts/inspect.sh` |
 | `.vscode/extensions.json` | VS Code suggests the recommended extensions |
 | `.vscode/settings.json` | Java settings that match the build (import order, no format-on-save) |
 

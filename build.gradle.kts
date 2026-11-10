@@ -81,6 +81,8 @@ dependencies {
 
     // Operations
     implementation(libs.spring.boot.starter.actuator)
+    // Traces and metrics, exported with OTLP to whichever collector the platform provides
+    implementation(libs.spring.boot.starter.opentelemetry)
 
     // Architecture
     implementation(libs.spring.modulith.starter.core)

@@ -17,6 +17,9 @@ All configuration comes from environment variables, so the same image runs on an
 | `EMAIL_REPLY_TO` | No | Where replies go, such as a support inbox. The sending domain can't receive mail. |
 | `EMAIL_ALLOW_LIST` | No | Comma-separated addresses. When set, only they receive email: for staging. Leave it unset in production. |
 | `SITE_URL` | No | The web app's address, for links in emails. Defaults to `https://dokiments.com`, and to `http://localhost:3000` in `dev`. |
+| `OTEL_EXPORTER_OTLP_ENDPOINT` | No | OpenTelemetry collector for traces (and metrics, see below), for example `http://collector:4318`. Without it, nothing is exported. See [Observability](#observability). |
+| `OTEL_METRICS_EXPORTER` | No | `otlp` to export metrics too. Off by default. |
+| `OTEL_TRACES_SAMPLER_ARG` | No | Share of requests whose trace is kept, from `0` to `1`. Defaults to `0.1`, and `1` in `dev`. |
 | `SPRING_PROFILES_ACTIVE` | No | `prod` in the Docker image, `dev` for `bootRun`. |
 | `DOCUMENT_SHARING_ENABLED` | No | `true` turns on sharing documents for signature. Off by default; while off, the sharing endpoints answer `404`. |
 | `TIER_LOCKS_ENABLED` | No | `false` stops enforcing plan limits. On by default; only switch it off for testing. |
@@ -84,6 +87,32 @@ RESEND_API_KEY=re_... ./gradlew bootRun
 Use the key for staging and local use, never the production one. See [Testing and quality](testing-and-quality.md)
 for how emails are tested, and `src/main/resources/email/` for the templates.
 
+## Observability
+
+Every request gets a trace. Its ID is in every log line written while handling it (`trace.id` in the JSON logs) and
+in the `X-Trace-Id` response header, so a problem someone reports from their browser leads straight to the request's
+logs. A request that arrives with a W3C `traceparent` header, for example from the platform's load balancer,
+continues that trace. Firestore calls, Redis commands and calls to external services appear inside the request's
+trace. Health checks (`/actuator/**`) aren't traced.
+
+Traces and metrics are exported with OTLP, the OpenTelemetry protocol, so they work with any backend that has an
+OpenTelemetry collector or accepts OTLP directly. They are configured with the standard OpenTelemetry variables:
+
+| Variable | Effect |
+| --- | --- |
+| `OTEL_EXPORTER_OTLP_ENDPOINT` | Where to send them, such as a collector running next to the container. Traces are exported once this is set. |
+| `OTEL_METRICS_EXPORTER=otlp` | Exports metrics too, every minute. Off by default, because without a collector each attempt would fail and log a warning. |
+| `OTEL_TRACES_SAMPLER_ARG` | The share of traces kept: `0.1` (one in ten) by default. The trace ID exists for every request either way. |
+| `OTEL_SERVICE_NAME`, `OTEL_RESOURCE_ATTRIBUTES` | How the service appears in the backend. Defaults to `dokiments-api`. |
+| `OTEL_SDK_DISABLED=true` | Switches OpenTelemetry off completely. |
+
+These must be real environment variables: Spring Boot doesn't read them from `.env`.
+
+Besides Spring Boot's own metrics (requests, JVM, Redis, HTTP clients), the application records `dokiments.emails`:
+emails by `template` and `result` (`sent`, `disabled`, `blocked`, `invalid_recipient` or `provider_error`).
+
+To view traces locally, see [Viewing traces](local-development.md#viewing-traces).
+
 ## Local settings
 
 For local development, put your own values in a `.env` file in the project folder. Start from the example, which lists
@@ -107,6 +136,8 @@ set as a real environment variable, such as `PORT=8090 ./gradlew bootRun`, still
 | `REDIS_URL` | not set | Use a different Redis instead of the one Docker Compose starts |
 | `SITE_URL` | `http://localhost:3000` | The web app, for links in emails |
 | `EMAIL_ALLOW_LIST` | not set | The only addresses that receive email locally (see [Email](#email)) |
+| `JAEGER_UI_PORT` | `16686` | Host port of the Jaeger trace viewer |
+| `OTLP_PORT` | `4318` | Host port Jaeger receives traces on |
 
 Write one `KEY=value` per line, without quotes and without comments on the same line: both Docker Compose and Spring
 Boot read the file. Don't put secrets in it. Deployed containers never read `.env`; they get their settings from the
