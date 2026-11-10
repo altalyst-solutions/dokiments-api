@@ -106,6 +106,9 @@ Rules, enforced by `HexagonalArchitectureTest` (ArchUnit) and `ModularityTest` (
 - Side effects such as sending email happen in listeners reacting to domain events, not inline in a use case.
 - A new module needs a `package-info.java` with `@NullMarked` and `@ApplicationModule(displayName = "...")`, and must
   be added to `FEATURE_MODULES` in `HexagonalArchitectureTest`.
+- The `newsletter` module is the reference for a new module: its layout, naming, validation split and tests are
+  described in `docs/architecture.md` ("Building a feature module"). Follow it unless there is a reason not to.
+- Use cases take the shared `java.time.Clock` bean instead of calling `Instant.now()`, so tests can fix the time.
 
 ## Code style
 

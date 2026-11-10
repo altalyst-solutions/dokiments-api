@@ -56,6 +56,36 @@ flowchart LR
 Web DTOs (the API contract), domain models (the rules) and Firestore entities (the stored shape) are kept apart, with
 mapping between them. Side effects such as sending email happen in listeners reacting to domain events.
 
+## Building a feature module
+
+The `newsletter` module is the reference: copy its layout and naming for a new module. For `POST /api/newsletter`:
+
+| Layer | Class | Role |
+| --- | --- | --- |
+| `domain` | `SubscriberEmail`, `Subscriber`, `InvalidSubscriberEmailException` | The rules (what counts as an address, how it is cleaned) as records, without frameworks. A rule that fails throws a type extending one of `shared.error`. |
+| `application.port.in` | `SubscribeToNewsletter` with its `SubscribeCommand` | The use case: an interface named after what it does, with its input as a nested record. |
+| `application.port.out` | `NewsletterSubscribers` | What the use case needs, named after what it holds, not after Firestore. |
+| `application.service` | `NewsletterService` | Implements the use cases. Package-private and annotated `@Service`; takes a `Clock` rather than calling `Instant.now()`. |
+| `adapter.in.web` | `NewsletterController` with `SubscribeRequest` and `SubscribeResponse` | The endpoint. Package-private; the request and response records are the API contract, nested in the controller. |
+| `adapter.out.firestore` | `FirestoreNewsletterSubscribers`, `NewsletterDocument` | Implements the outbound port with Firestore. The document record is the stored shape, mapped from the domain model. |
+
+Validation is split by what it protects:
+
+- The request record checks the **shape** with Bean Validation (`@NotNull`, sizes), so a malformed body is answered
+  before any code runs.
+- The domain checks the **rules** (a plausible address, a document that may still change), so they hold however the
+  use case is called.
+
+Each layer gets its own tests:
+
+- domain rules as plain unit tests (`SubscriberEmailTest`);
+- the use case with an in-memory fake of its outbound port and a fixed clock (`NewsletterServiceTest`);
+- the endpoint end to end, through the real security setup into the Firestore emulator (`NewsletterIT`): status
+  codes, exact response bodies, and the stored document.
+
+An endpoint stays closed (`401`) until it is opened in `platform/security/SecurityConfig`. A public endpoint that
+uses no session is also exempted from CSRF there, because the web app sends no CSRF token.
+
 ## How it is enforced
 
 - `HexagonalArchitectureTest` (ArchUnit): layer dependencies, which libraries each layer may use (HTTP clients only in

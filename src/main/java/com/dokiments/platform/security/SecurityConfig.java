@@ -6,6 +6,7 @@ import jakarta.servlet.DispatcherType;
 import jakarta.servlet.http.HttpServletResponse;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
+import org.springframework.http.HttpMethod;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
 import org.springframework.security.web.SecurityFilterChain;
@@ -13,9 +14,9 @@ import org.springframework.security.web.SecurityFilterChain;
 /**
  * Deny-by-default security, until authentication is implemented.
  *
- * <p>Only the health and info endpoints are public, so container platforms can probe the service. Every other request
- * is answered with {@code 401}, which means nothing becomes reachable by accident while the API is being built.
- * Endpoints are opened explicitly, one by one, as features land.
+ * <p>Only the health and info endpoints and the public endpoints listed below are open. Every other request is answered
+ * with {@code 401}, which means nothing becomes reachable by accident while the API is being built. Endpoints are
+ * opened explicitly, one by one, as features land.
  */
 @Configuration(proxyBeanMethods = false)
 class SecurityConfig {
@@ -31,8 +32,15 @@ class SecurityConfig {
                         .permitAll()
                         .requestMatchers("/actuator/health", "/actuator/health/**", "/actuator/info")
                         .permitAll()
+                        // Public newsletter sign-up from the website.
+                        .requestMatchers(HttpMethod.POST, "/api/newsletter")
+                        .permitAll()
                         .anyRequest()
                         .denyAll())
+                // Cross-site request forgery tricks a signed-in browser into sending a request with its
+                // cookies. Public endpoints that use no session can't be abused that way, so they don't need a
+                // CSRF token, which the web app doesn't send.
+                .csrf(csrf -> csrf.ignoringRequestMatchers("/api/newsletter"))
                 // No browser login page or Basic auth dialog: an API answers with a status code.
                 .formLogin(AbstractHttpConfigurer::disable)
                 .httpBasic(AbstractHttpConfigurer::disable)

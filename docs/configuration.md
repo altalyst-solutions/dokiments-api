@@ -151,6 +151,7 @@ When adding a setting, add it to `.env.example` and to the table above.
 | --- | --- | --- |
 | `/actuator/health` | Public | Overall health, including Redis and Firestore. Also `/actuator/health/liveness` and `/actuator/health/readiness` for container probes. |
 | `/actuator/info` | Public | Version, Git commit and Java version |
+| `POST /api/newsletter` | Public | Newsletter sign-up from the website |
 | Everything else | Denied (`401`) | Opened explicitly as features are added |
 
 ## Errors
