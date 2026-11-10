@@ -11,10 +11,13 @@ build/
 hs_err_pid*
 replay_pid*
 
-# IntelliJ IDEA (only the shared plugin list and formatter switch are committed)
+# IntelliJ IDEA (only the shared plugin list, formatter switch and inspection settings are committed)
 .idea/*
 !.idea/externalDependencies.xml
 !.idea/palantir-java-format.xml
+!.idea/inspectionProfiles/
+.idea/inspectionProfiles/*
+!.idea/inspectionProfiles/Project_Default.xml
 *.iml
 *.ipr
 *.iws

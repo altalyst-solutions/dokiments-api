@@ -99,14 +99,19 @@ else
   exit 2
 fi
 
-# IntelliJ's default inspections, as in a fresh editor, except one: the "extract method"
-# recommender crashes on records with a compact constructor. In this command-line mode such a
-# crash abandons the whole file, so every other check of that file would be lost with it.
-cat > "$work_dir/profile.xml" <<'EOF'
-<profile version="1.0">
-  <option name="myName" value="Default" />
-  <inspection_tool class="ExtractMethodRecommender" enabled="false" level="INFORMATION" enabled_by_default="false" />
-</profile>
+# The project's shared inspection settings (.idea/inspectionProfiles/Project_Default.xml), the
+# same ones the editor uses, with one addition: the "extract method" recommender is switched off.
+# It crashes on records with a compact constructor, and in this command-line mode such a crash
+# abandons the whole file, so every other check of that file would be lost with it.
+python3 - "$project_dir/.idea/inspectionProfiles/Project_Default.xml" "$work_dir/profile.xml" <<'EOF'
+import sys
+import xml.etree.ElementTree as ET
+
+profile = ET.parse(sys.argv[1]).getroot().find("profile")
+ET.SubElement(profile, "inspection_tool", {
+    "class": "ExtractMethodRecommender", "enabled": "false", "level": "INFORMATION",
+    "enabled_by_default": "false"})
+ET.ElementTree(profile).write(sys.argv[2], encoding="UTF-8")
 EOF
 
 echo "Running IntelliJ inspections (about a minute)..."
