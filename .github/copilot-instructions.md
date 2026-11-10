@@ -80,8 +80,8 @@ Each direct sub-package of `com.dokiments` is a module, verified by Spring Modul
 - Feature modules: `auth`, `users`, `documents`, `sharing`, `clients`, `templates`, `notifications`, `feedback`,
   `promo`, `newsletter`.
 - `shared`: small value types every module may use (for example `UserId`, `Email`). Keep it minimal.
-- `platform`: technical setup only (security, configuration, error handling, Firestore, HTTP clients, email). It
-  must never depend on a feature module.
+- `platform`: technical setup only (security, configuration, error handling, Firestore, HTTP clients, email,
+  observability). It must never depend on a feature module.
 
 Packages inside a feature module `com.dokiments.<module>`:
 
@@ -111,8 +111,9 @@ Rules, enforced by `HexagonalArchitectureTest` (ArchUnit) and `ModularityTest` (
 
 - Formatting is palantir-java-format (120 columns) through Spotless, and ktlint (IntelliJ style) for `*.gradle.kts`.
   Don't hand-format: run `./gradlew spotlessApply`.
-- Editor setup is shared in `.vscode/extensions.json`, `.vscode/settings.json`, `.idea/externalDependencies.xml`
-  and `.idea/palantir-java-format.xml`. When recommending an extension or plugin, add it there and check that it
+- Editor setup is shared in `.vscode/extensions.json`, `.vscode/settings.json`, `.idea/externalDependencies.xml`,
+  `.idea/palantir-java-format.xml` and `.idea/inspectionProfiles/Project_Default.xml` (inspection settings, which
+  `scripts/inspect.sh` uses too). When recommending an extension or plugin, add it there and check that it
   exists and is maintained.
 - Use **records** for DTOs, commands, value objects and events. **Lombok is not used** and an architecture test
   rejects it.
@@ -183,6 +184,17 @@ Rules, enforced by `HexagonalArchitectureTest` (ArchUnit) and `ModularityTest` (
   the time of sending.
 - Never log full email addresses or email contents outside `dev`.
 - Locally and in tests, only the allow list receives email (`restrict-recipients`). Never change that.
+
+## Observability
+
+- Tracing and metrics come from Spring Boot and OpenTelemetry (`platform.observability`). Requests, Firestore calls,
+  Redis commands and `RestClient` calls are recorded already; don't add spans or timers for them.
+- Every log line written during a request carries its trace ID (`trace.id`), which is also returned as `X-Trace-Id`.
+  Don't log your own request IDs.
+- For a business metric, use Micrometer's `MeterRegistry` with a `dokiments.` name and a small, fixed set of tag
+  values (never IDs, emails or other values that grow without limit), like `dokiments.emails`.
+- Exports are configured only with the standard `OTEL_*` variables. Never hard-code a collector address or a vendor
+  exporter.
 
 ## Comments
 

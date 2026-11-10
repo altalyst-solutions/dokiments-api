@@ -55,6 +55,24 @@ docker compose up -d
 
 The application then uses them and leaves them running when it stops. Stop them with `docker compose down`.
 
+## Viewing traces
+
+Every local request is traced. To see the traces, start Jaeger, a trace viewer, from `compose.yaml` and run the
+application with the address it receives traces on:
+
+```bash
+docker compose --profile tracing up -d
+OTEL_EXPORTER_OTLP_ENDPOINT=http://localhost:4318 ./gradlew bootRun
+```
+
+Then open [localhost:16686](http://localhost:16686) and pick `dokiments-api`. Each request shows its steps: security
+checks, Firestore calls, Redis commands and calls to external services, with how long each took. The `X-Trace-Id`
+header of a response is the ID to search for. Jaeger keeps traces in memory only; stop it with
+`docker compose --profile tracing stop`.
+
+`JAEGER_UI_PORT` and `OTLP_PORT` in `.env` change its ports. The variable has to be set on the command line as above,
+because Spring Boot reads OpenTelemetry settings only from real environment variables.
+
 ## Local data
 
 The Firestore emulator is the local database: nothing is read from or written to Cloud Firestore. The application
@@ -90,6 +108,7 @@ The container uses the `prod` profile, so logs are JSON. It talks to the Compose
 | --- | --- |
 | `docker compose up` | Redis and the Firestore emulator |
 | `docker compose --profile full up --build` | Redis, the emulator and the API container |
+| `docker compose --profile tracing up -d` | Jaeger, for viewing traces (see [Viewing traces](#viewing-traces)) |
 | `./gradlew bootRun` | Redis and the emulator (automatically), and the API from your code |
 
 ## Docker image

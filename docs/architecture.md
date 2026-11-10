@@ -14,13 +14,13 @@ Each direct sub-package of `com.dokiments` is a module:
 - **Feature modules:** `auth`, `users`, `documents`, `sharing`, `clients`, `templates`, `notifications`, `feedback`,
   `promo`, `newsletter`.
 - **`shared`:** small value types used by every module.
-- **`platform`:** technical setup such as security, configuration, error handling, Firestore and HTTP clients. It
-  never depends on a feature module.
+- **`platform`:** technical setup such as security, configuration, error handling, Firestore, HTTP clients, email
+  and observability. It never depends on a feature module.
 
 ```mermaid
 flowchart TB
     features["Feature modules<br/>auth, users, documents, sharing, clients,<br/>templates, notifications, feedback, promo, newsletter"]
-    features --> platform["platform<br/>security, configuration, error handling,<br/>Firestore, HTTP clients"]
+    features --> platform["platform<br/>security, configuration, error handling,<br/>Firestore, HTTP clients, email, observability"]
     features --> shared["shared<br/>small value types"]
     platform --> shared
 ```
