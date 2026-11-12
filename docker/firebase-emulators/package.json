@@ -1,0 +1,8 @@
+{
+  "name": "dokiments-firebase-emulators",
+  "private": true,
+  "description": "The Firebase CLI, pinned so the local emulators are the same for everyone. Dependabot keeps it current.",
+  "dependencies": {
+    "firebase-tools": "15.35.0"
+  }
+}

@@ -1,6 +1,6 @@
 # Local development services.
 #
-# `./gradlew bootRun` starts the default services (Redis and the Firestore emulator)
+# `./gradlew bootRun` starts the default services (Redis and the Firebase emulators)
 # automatically through Spring Boot's Docker Compose support, connects to them, and stops
 # them when the application stops. Nothing needs to be started by hand.
 #
@@ -8,7 +8,8 @@
 #   docker compose --profile full up --build
 #
 # Image tags must stay in line with src/test/java/com/dokiments/support/TestImages.java,
-# so that local development and integration tests use the same versions.
+# so that local development and integration tests use the same versions. The integration
+# tests build the Firebase emulators image from the same folder (buildFirebaseEmulatorsImage).
 #
 # The ${...} values below can be changed in a .env file next to this one, which Docker
 # Compose reads automatically. See .env.example for every setting and its default.
@@ -29,35 +30,52 @@ services:
       timeout: 3s
       retries: 10
 
-  firestore:
-    image: gcr.io/google.com/cloudsdktool/google-cloud-cli:592.0.0-emulators
-    # The emulator keeps data in memory only. This script loads the last save on start,
-    # saves regularly and once more on stop, so local data survives restarts. The
-    # project ID is "demo-dokiments": a "demo-" ID can never match a real Firebase project,
-    # so nothing written here can reach Google. Only data in that project is saved.
-    entrypoint: ["bash", "/start.sh"]
+  # The Firebase emulators: Auth (sign-up and sign-in), Firestore (the database) and the
+  # Emulator UI to browse both, at http://localhost:4000. Built from docker/firebase-emulators,
+  # once, on first use. The project ID is "demo-dokiments": a "demo-" ID can never match a
+  # real Firebase project, so nothing here can reach Google.
+  #
+  # Their data is kept between restarts in the firebase-data volume: start.sh loads the last
+  # save on start, saves regularly and once more on stop.
+  firebase:
+    image: dokiments-firebase-emulators:local
+    build:
+      context: docker/firebase-emulators
+      secrets:
+        - extra_ca
     volumes:
-      - ./docker/firestore-emulator/start.sh:/start.sh:ro
-      - firestore-data:/data
+      - firebase-data:/data
     environment:
       SAVE_INTERVAL_SECONDS: ${FIRESTORE_SAVE_INTERVAL_SECONDS:-60}
       KEEP_SAVES: ${FIRESTORE_KEEP_SAVES:-3}
+      FIRESTORE_PORT: ${FIRESTORE_EMULATOR_PORT:-8085}
+      AUTH_PORT: ${AUTH_EMULATOR_PORT:-9099}
+      UI_PORT: ${EMULATOR_UI_PORT:-4000}
+      WEBSOCKET_PORT: ${FIRESTORE_WEBSOCKET_PORT:-9150}
+      LOGGING_PORT: ${EMULATOR_LOGS_PORT:-4500}
     # Time for the final save before Docker force-stops the container.
     stop_grace_period: 30s
-    # A known host port (8085 unless FIRESTORE_EMULATOR_PORT says otherwise), because the
-    # application will be pointed at it with FIRESTORE_EMULATOR_HOST. Spring Boot has no
-    # built-in support for the Firestore emulator, so it can't discover a random port the
-    # way it does for Redis.
+    # The same port inside the container as on the host, because the Emulator UI runs in the
+    # browser and connects to each emulator at the port it listens on. Known ports also let
+    # the application be pointed at them (FIRESTORE_EMULATOR_HOST); Spring Boot has no
+    # built-in support for these emulators, so it can't discover random ports the way it
+    # does for Redis.
     ports:
-      - "${FIRESTORE_EMULATOR_PORT:-8085}:8080"
+      - "${FIRESTORE_EMULATOR_PORT:-8085}:${FIRESTORE_EMULATOR_PORT:-8085}"
+      - "${AUTH_EMULATOR_PORT:-9099}:${AUTH_EMULATOR_PORT:-9099}"
+      - "${EMULATOR_UI_PORT:-4000}:${EMULATOR_UI_PORT:-4000}"
+      - "${FIRESTORE_WEBSOCKET_PORT:-9150}:${FIRESTORE_WEBSOCKET_PORT:-9150}"
+      - "${EMULATOR_LOGS_PORT:-4500}:${EMULATOR_LOGS_PORT:-4500}"
     labels:
       # Spring Boot would otherwise log that it found a service it doesn't recognise.
       org.springframework.boot.ignore: "true"
     healthcheck:
-      test: ["CMD", "curl", "-fsS", "http://localhost:8080/"]
+      # The emulators' coordinator, which answers once start.sh has started them.
+      test: ["CMD", "curl", "-fsS", "http://localhost:4400/emulators"]
       interval: 5s
       timeout: 3s
-      retries: 20
+      retries: 30
+      start_period: 30s
 
   # Only started with `--profile full`. Built from the local Dockerfile and run with the
   # production profile, which makes it a close copy of a real deployment.
@@ -71,13 +89,13 @@ services:
       REDIS_URL: redis://redis:6379
       # The Compose emulator, with its "demo-" project ID, never a real project.
       FIREBASE_PROJECT_ID: demo-dokiments
-      FIRESTORE_EMULATOR_HOST: firestore:8080
+      FIRESTORE_EMULATOR_HOST: firebase:${FIRESTORE_EMULATOR_PORT:-8085}
     ports:
       - "${API_PORT:-8080}:8080"
     depends_on:
       redis:
         condition: service_healthy
-      firestore:
+      firebase:
         condition: service_healthy
 
   # Optional trace viewer for local development: docker compose --profile tracing up -d
@@ -106,6 +124,6 @@ secrets:
     environment: EXTRA_CA_PEM
 
 volumes:
-  # Saved Firestore emulator data. Kept by `docker compose down`; removed, for a fresh
-  # empty database, by `docker compose down --volumes`.
-  firestore-data:
+  # Saved emulator data (Auth accounts and Firestore). Kept by `docker compose down`; removed,
+  # for a fresh start, by `docker compose down --volumes`.
+  firebase-data:

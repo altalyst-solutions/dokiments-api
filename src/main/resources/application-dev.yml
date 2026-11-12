@@ -11,7 +11,7 @@ spring:
     compose:
       stop:
         # When bootRun stops, it stops the compose.yaml services and waits this long before
-        # Docker kills them. The Firestore emulator saves local data as it stops, and compose.yaml
+        # Docker kills them. The Firebase emulators save local data as they stop, and compose.yaml
         # allows it 30 s for that (stop_grace_period); Spring Boot's default of 10 s would cut a
         # large save short.
         timeout: 30s

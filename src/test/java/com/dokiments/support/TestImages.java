@@ -10,8 +10,12 @@ public final class TestImages {
 
     public static final DockerImageName REDIS = DockerImageName.parse("redis:8.10-alpine");
 
-    public static final DockerImageName FIRESTORE_EMULATOR =
-            DockerImageName.parse("gcr.io/google.com/cloudsdktool/google-cloud-cli:592.0.0-emulators");
+    /**
+     * Built from {@code docker/firebase-emulators} by the {@code buildFirebaseEmulatorsImage} Gradle task before the
+     * integration tests run, under the name {@code compose.yaml} gives it.
+     */
+    public static final DockerImageName FIREBASE_EMULATORS =
+            DockerImageName.parse("dokiments-firebase-emulators:local");
 
     private TestImages() {}
 }

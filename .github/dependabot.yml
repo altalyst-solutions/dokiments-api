@@ -61,7 +61,31 @@ updates:
       - dependency-name: "eclipse-temurin"
         update-types: ["version-update:semver-major"]
 
-  # Redis and Firestore emulator images in compose.yaml.
+  # The Firebase emulators image used locally and by the integration tests: its Node base
+  # image, and the Firebase CLI pinned in its package.json.
+  - package-ecosystem: docker
+    directory: /docker/firebase-emulators
+    schedule:
+      interval: weekly
+      day: monday
+    commit-message:
+      prefix: build
+      include: scope
+    # Node stays on a long-term-support release; moving to the next one is done by hand.
+    ignore:
+      - dependency-name: "node"
+        update-types: ["version-update:semver-major"]
+
+  - package-ecosystem: npm
+    directory: /docker/firebase-emulators
+    schedule:
+      interval: weekly
+      day: monday
+    commit-message:
+      prefix: build
+      include: scope
+
+  # Images in compose.yaml (Redis, Jaeger).
   - package-ecosystem: docker-compose
     directory: /
     schedule:
