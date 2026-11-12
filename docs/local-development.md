@@ -10,7 +10,9 @@ start with [Getting started](getting-started.md).
 ```
 
 This starts the application with the `dev` profile. Through Spring Boot's Docker Compose support it also starts Redis
-and the Firestore emulator from `compose.yaml`, connects to them, and stops them again when the application stops.
+and the Firebase emulators (Auth and Firestore) from `compose.yaml`, connects to them, and stops them again when the
+application stops. The first run builds the emulators' image from `docker/firebase-emulators`, which takes a minute or
+two; later runs reuse it.
 The `dev` profile shows the Spring banner, readable coloured logs and full health details.
 
 ```mermaid
@@ -19,7 +21,7 @@ flowchart LR
     run -. "starts and stops" .-> services
     subgraph services["compose.yaml"]
         redis[("Redis<br/>random host port")]
-        emulator[("Firestore emulator<br/>:8085, data kept")]
+        emulator[("Firebase emulators<br/>Firestore :8085, Auth :9099<br/>UI :4000, data kept")]
     end
     app --> redis
     app --> emulator
@@ -105,15 +107,16 @@ because Spring Boot reads OpenTelemetry settings only from real environment vari
 
 ## Local data
 
-The Firestore emulator is the local database: nothing is read from or written to Cloud Firestore. The application
-checks this at start-up: in the `dev` profile it only runs against the emulator, with the `demo-dokiments` project.
+The Firebase emulators are the local Firebase: the Firestore emulator is the database, and the Auth emulator holds
+the accounts people sign up with. Nothing is read from or written to a real Firebase project. The application checks
+this at start-up: in the `dev` profile it only runs against the emulator, with the `demo-dokiments` project.
 
 ### How it is kept
 
 Data **is kept between restarts**, including stopping `bootRun`, `docker compose down` and restarting your computer.
-The emulator itself only holds data in memory, so `docker/firestore-emulator/start.sh` saves it to a Docker volume:
-once a minute while it runs (`FIRESTORE_SAVE_INTERVAL_SECONDS`), and once more when it stops. On start, it loads the
-latest save.
+The emulators only hold data in memory, so `docker/firebase-emulators/start.sh` saves the Firestore data and the Auth
+accounts to a Docker volume: once a minute while they run (`FIRESTORE_SAVE_INTERVAL_SECONDS`), and once more when
+they stop. On start, it loads the latest save.
 
 How the containers start and stop depends on how you run things:
 
@@ -130,34 +133,37 @@ stop the containers. They keep running with your data, and the next `bootRun` re
 | --- | --- |
 | Keep your data | Nothing: it is kept automatically |
 | Start again with an empty database | `docker compose down --volumes` |
-| See the saves | `docker compose exec firestore ls /data/exports` (the newest `FIRESTORE_KEEP_SAVES` are kept) |
-| See what the emulator did | `docker compose logs firestore` |
+| See the saves | `docker compose exec firebase ls /data/exports` (the newest `FIRESTORE_KEEP_SAVES` are kept) |
+| See what the emulators did | `docker compose logs firebase` |
 
 If the emulator is stopped abruptly (Docker force-quit, a crash, power loss), changes since the last save can be lost:
-at most a minute with the default interval. Integration tests never use this data: they run against a fresh emulator
+at most a minute with the default interval. Integration tests never use this data: they run against fresh emulators
 of their own.
 
 ### Checking that data survives
 
 1. Run `docker compose up -d`, then `./gradlew bootRun`, and write something, for example with the newsletter
    request in [Trying requests](#trying-requests).
-2. In a second terminal, follow the emulator's log: `docker compose logs -f firestore`.
+2. In a second terminal, follow the emulators' log: `docker compose logs -f firebase`.
 3. Stop the application (`Ctrl+C`), then run `docker compose down`. The log shows
-   `[firestore-emulator] Stopping: saving the data first` and then `Saved and stopped`.
-4. Run `docker compose up -d`. `docker compose logs firestore` now shows `Loading saved data from /data/exports/...`
-   and `Ready on port 8080` (the port inside the container; on your machine it is `FIRESTORE_EMULATOR_PORT`).
+   `[firebase-emulators] Stopping: saving the data first` and then `Saved and stopped`.
+4. Run `docker compose up -d`. `docker compose logs firebase` now shows `Loading saved data from /data/exports/...`
+   and `Ready: auth,firestore,ui`.
 5. Read the data back (see [Looking at the data](#looking-at-the-data)): it is all there.
 
-To see the limits: write something and immediately run `docker compose kill firestore`, which stops it without a
+To see the limits: write something and immediately run `docker compose kill firebase`, which stops it without a
 save. After `docker compose up -d`, that last change is gone, while anything older than the save interval is still
 there. `docker compose down --volumes` instead deletes every save, and the next start reports
 `No saved data yet, starting with an empty database`.
 
 ### Looking at the data
 
-The emulator has no web interface, but it answers Firestore's REST API without any authentication, so `curl`,
-Postman or a browser can read and change the local data. It must be running (`bootRun`, or `docker compose up -d`).
-Every address starts with:
+The **Emulator UI** at [localhost:4000](http://localhost:4000) (`EMULATOR_UI_PORT`) shows the local data while the
+emulators run (`bootRun`, or `docker compose up -d`): **Firestore** to browse, edit and delete documents, with live
+updates, and **Authentication** to see, add and remove accounts. It also lists the requests each emulator received.
+
+The Firestore emulator also answers Firestore's REST API without any authentication, so `curl`, Postman or a browser
+can read and change the local data directly. Every address starts with:
 
 ```text
 http://localhost:8085/v1/projects/demo-dokiments/databases/(default)/documents
@@ -220,7 +226,7 @@ The container uses the `prod` profile, so logs are JSON. It talks to the Compose
 
 | Command | Starts |
 | --- | --- |
-| `docker compose up` | Redis and the Firestore emulator |
+| `docker compose up` | Redis and the Firebase emulators |
 | `docker compose --profile full up --build` | Redis, the emulator and the API container |
 | `docker compose --profile tracing up -d` | Jaeger, for viewing traces (see [Viewing traces](#viewing-traces)) |
 | `./gradlew bootRun` | Redis and the emulator (automatically), and the API from your code |

@@ -8,7 +8,7 @@ guide covers the tests, the checks the build runs, IntelliJ's extra inspections,
 | Command | What runs | Needs Docker |
 | --- | --- | --- |
 | `./gradlew test` | Unit and architecture tests | No |
-| `./gradlew integrationTest` | Integration tests against real Redis and Firestore emulator containers | Yes |
+| `./gradlew integrationTest` | Integration tests against real Redis and Firebase emulator containers | Yes |
 | `./gradlew build` | Formatting check, compile checks, both test suites and coverage | Yes |
 
 Reports are written to `build/reports/`: tests under `tests/`, coverage under `jacoco/`. Spring Modulith writes module
@@ -19,7 +19,10 @@ How tests are written:
 - **Unit tests** are plain JUnit 5 and AssertJ. Domain and application tests use in-memory fakes of the ports rather
   than mocks where practical.
 - **Integration tests** are annotated with `@IntegrationTest`: the full Spring context, the `test` profile, and Redis
-  and the Firestore emulator from Testcontainers. Each test run gets a fresh, empty emulator. Tests that don't start
+  and the Firebase emulators (Auth and Firestore) from Testcontainers. Each test run gets fresh, empty emulators. The
+  emulators run the image local development uses, built from `docker/firebase-emulators` by the
+  `buildFirebaseEmulatorsImage` task before the integration tests start (Docker's cache makes that quick when nothing
+  changed). Tests that don't start
   Spring but still need Docker use `@Tag(IntegrationTest.TAG)`. By convention, integration test classes end in `IT`.
 - Container images for tests are pinned in `src/test/java/com/dokiments/support/TestImages.java` and match
   `compose.yaml`.

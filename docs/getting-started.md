@@ -1,7 +1,7 @@
 # Getting started
 
 From a fresh machine to the API running locally. No accounts or keys are needed: everything runs against local
-containers and the Firestore emulator.
+containers and the Firebase emulators.
 
 Pick your operating system:
 
@@ -16,14 +16,14 @@ Then continue with [Clone, build and run](#clone-build-and-run), which is the sa
 | Tool | Version | Why |
 | --- | --- | --- |
 | JDK | 25 (Eclipse Temurin recommended) | Runs Gradle and compiles the code |
-| Docker with Docker Compose | Docker Desktop, or Docker Engine with the Compose plugin | Redis and the Firestore emulator locally, and the integration tests |
+| Docker with Docker Compose | Docker Desktop, or Docker Engine with the Compose plugin | Redis and the Firebase emulators locally, and the integration tests |
 | Git | Any recent version | |
 | An editor | IntelliJ IDEA or VS Code | See [IDE setup](ide-setup.md) |
 
 Gradle doesn't need to be installed: the repository includes the Gradle wrapper (`./gradlew`), which downloads the
 right Gradle version on first use.
 
-Give Docker at least 4 GB of memory: the Firestore emulator image is large.
+Give Docker at least 4 GB of memory: the Firebase emulators run Java and Node side by side.
 
 ## macOS
 
@@ -145,8 +145,8 @@ cd dokiments-api
 ./gradlew build
 ```
 
-The first run downloads Gradle, all dependencies and the Redis and Firestore emulator images, which takes a few
-minutes. Later builds are much faster. It ends with a summary of both test suites and `BUILD SUCCESSFUL`.
+The first run downloads Gradle, all dependencies and the Redis image, and builds the Firebase emulators image, which
+takes a few minutes. Later builds are much faster. It ends with a summary of both test suites and `BUILD SUCCESSFUL`.
 
 ### 4. Run
 
@@ -198,6 +198,11 @@ systemProp.javax.net.ssl.trustStorePassword=changeit
 Stop running Gradle daemons (`./gradlew --stop`) so the change is picked up. Docker builds need the certificate too:
 see [Docker image](local-development.md#docker-image).
 
+The Firebase emulators image, which `bootRun` and the integration tests build, downloads the Firebase CLI from npm and
+needs the certificate as well. Put its contents in `EXTRA_CA_PEM` in your shell profile, for example
+`export EXTRA_CA_PEM="$(cat /path/to/proxy-root-ca.pem)"`: Docker Compose and the `buildFirebaseEmulatorsImage`
+Gradle task both pass it to the build as a secret.
+
 ## Troubleshooting
 
 | Problem | Fix |
@@ -206,7 +211,7 @@ see [Docker image](local-development.md#docker-image).
 | `permission denied` on `/var/run/docker.sock` (Linux) | Your user isn't in the `docker` group: see [Linux](#linux), then log out and back in. |
 | Integration tests fail with `Could not find a valid Docker environment` | Testcontainers can't reach Docker. In Docker Desktop on macOS, enable "Allow the default Docker socket to be used" (Settings, Advanced). With Colima or another runtime, set `DOCKER_HOST`. |
 | `Port 8080 was already in use` | Another program uses 8080. Set another port in `.env`, for example `PORT=8081` (see [Local settings](configuration.md#local-settings)). |
-| `Bind for 0.0.0.0:8085 failed` | Port 8085 (Firestore emulator) is taken, often by containers left from an earlier run: `docker compose down`. Or set `FIRESTORE_EMULATOR_PORT` in `.env`. |
+| `Bind for 0.0.0.0:8085 failed` (or 9099, 4000, 9150, 4500) | A Firebase emulator port is taken, often by containers left from an earlier run: `docker compose down`. Or set `FIRESTORE_EMULATOR_PORT` in `.env`. |
 | `Timeout waiting to lock ... cache` | The IDE is importing the project at the same time. Wait for it to finish and run again. |
 | `PKIX path building failed` | See [Behind a TLS-inspecting proxy](#behind-a-tls-inspecting-proxy). |
 | `./gradlew build` fails on formatting | Run `./gradlew spotlessApply`. |

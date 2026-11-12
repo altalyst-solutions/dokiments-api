@@ -130,7 +130,11 @@ set as a real environment variable, such as `PORT=8090 ./gradlew bootRun`, still
 | --- | --- | --- |
 | `PORT` | `8080` | Port of the API when running `./gradlew bootRun` |
 | `API_PORT` | `8080` | Host port of the API container (`--profile full`) |
-| `FIRESTORE_EMULATOR_PORT` | `8085` | Host port of the Firestore emulator |
+| `FIRESTORE_EMULATOR_PORT` | `8085` | Port of the Firestore emulator |
+| `AUTH_EMULATOR_PORT` | `9099` | Port of the Auth emulator |
+| `EMULATOR_UI_PORT` | `4000` | Port of the Emulator UI, to browse local data |
+| `FIRESTORE_WEBSOCKET_PORT` | `9150` | Live updates on the Emulator UI's Firestore page |
+| `EMULATOR_LOGS_PORT` | `4500` | The log stream on the Emulator UI's Logs page |
 | `FIRESTORE_SAVE_INTERVAL_SECONDS` | `60` | How often the emulator saves local data |
 | `FIRESTORE_KEEP_SAVES` | `3` | How many emulator saves are kept (at least 1) |
 | `REDIS_URL` | not set | Use a different Redis instead of the one Docker Compose starts |

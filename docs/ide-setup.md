@@ -37,7 +37,7 @@ Name the JDK `25` (the default when IntelliJ detects it). The project refers to 
 ### Run the application
 
 Run `bootRun` from the Gradle tool window (Tasks, application, bootRun), or `./gradlew bootRun` in IntelliJ's
-terminal. Both use the `dev` profile and start Redis and the Firestore emulator.
+terminal. Both use the `dev` profile and start Redis and the Firebase emulators.
 
 Avoid running `DokimentsApiApplication` directly with the green arrow: that skips the Gradle setup, so the `dev`
 profile isn't set and the application refuses to start without a Firestore project and Redis.
@@ -97,7 +97,7 @@ With SDKMAN, the path is `~/.sdkman/candidates/java/<version>` (spelled out in f
 
 ### Run the application
 
-Run `./gradlew bootRun` in VS Code's terminal. This uses the `dev` profile and starts Redis and the Firestore emulator.
+Run `./gradlew bootRun` in VS Code's terminal. This uses the `dev` profile and starts Redis and the Firebase emulators.
 
 Avoid the Run button above `main` and the Spring Boot Dashboard: they skip the Gradle setup, so the `dev` profile
 isn't set and the application refuses to start without a Firestore project and Redis.
