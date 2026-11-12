@@ -3,6 +3,7 @@ package com.dokiments.platform.firestore;
 import static org.assertj.core.api.Assertions.assertThat;
 import static org.assertj.core.api.Assertions.assertThatThrownBy;
 
+import com.dokiments.support.FirebaseEmulatorsContainer;
 import com.dokiments.support.IntegrationTest;
 import com.google.api.gax.rpc.StatusCode;
 import com.google.cloud.firestore.Firestore;
@@ -16,7 +17,6 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.beans.factory.annotation.Qualifier;
 import org.springframework.boot.health.contributor.HealthIndicator;
 import org.springframework.boot.health.contributor.Status;
-import org.testcontainers.gcloud.FirestoreEmulatorContainer;
 
 /** The application's own Firestore client, against the emulator, with the helpers adapters use. */
 @IntegrationTest
@@ -26,14 +26,14 @@ class FirestoreIT {
     private Firestore firestore;
 
     @Autowired
-    private FirestoreEmulatorContainer emulator;
+    private FirebaseEmulatorsContainer emulators;
 
     @Autowired
     @Qualifier("firestoreHealthIndicator") private HealthIndicator firestoreHealth;
 
     @Test
     void theClientTalksToTheEmulatorNeverToGoogle() {
-        assertThat(firestore.getOptions().getHost()).isEqualTo(emulator.getEmulatorEndpoint());
+        assertThat(firestore.getOptions().getHost()).isEqualTo(emulators.firestoreEndpoint());
         assertThat(firestore.getOptions().getProjectId()).startsWith(FirestoreProperties.EMULATOR_PROJECT_PREFIX);
     }
 

@@ -29,7 +29,7 @@ memory for names: check the jars in the Gradle cache or the official docs before
 | Integration tests (needs Docker) | `./gradlew integrationTest` |
 | Everything: format check, compile checks, both test suites, coverage | `./gradlew build` |
 | Fix formatting | `./gradlew spotlessApply` |
-| Run locally (`dev` profile; starts Redis and the Firestore emulator from `compose.yaml`) | `./gradlew bootRun` |
+| Run locally (`dev` profile; starts Redis and the Firebase emulators from `compose.yaml`) | `./gradlew bootRun` |
 | Run the API as a container with its services | `docker compose --profile full up --build` |
 | Build the image | `docker build -t dokiments-api .` |
 | Rewrite `docs/openapi.yaml` after an intended API change (needs Docker) | `./gradlew updateOpenApi` |
@@ -170,6 +170,9 @@ Rules, enforced by `HexagonalArchitectureTest` (ArchUnit) and `ModularityTest` (
   these helpers make that explicit.
 - Locally and in tests, Firestore is always the emulator with the `demo-dokiments` project. Never change that to a
   real project: `FirestoreProperties` refuses to start with one where the emulator is required.
+- The local and test emulators (Auth and Firestore) come from `docker/firebase-emulators`, one image for both.
+  `compose.yaml` and the `buildFirebaseEmulatorsImage` Gradle task build it. Change the Firebase CLI version only
+  through its `package.json` and `package-lock.json`, generated against the public npm registry (see its `.npmrc`).
 
 ## Calling external services
 

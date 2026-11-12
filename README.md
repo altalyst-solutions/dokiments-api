@@ -55,7 +55,7 @@ flowchart LR
 | Observability | OpenTelemetry traces and Micrometer metrics, exported with OTLP; trace IDs in logs and responses |
 | Architecture | Modular monolith in hexagonal style, checked by Spring Modulith and ArchUnit |
 | Code quality | Spotless (palantir-java-format), Error Prone, NullAway with JSpecify, JaCoCo |
-| Tests | JUnit, AssertJ, Testcontainers (Redis and the Firestore emulator) |
+| Tests | JUnit, AssertJ, Testcontainers (Redis and the Firebase emulators) |
 | Runtime | Docker image (Eclipse Temurin JRE), configured through environment variables |
 
 ## Quick start
@@ -67,7 +67,7 @@ emulator.
 git clone https://github.com/altalyst-solutions/dokiments-api.git
 cd dokiments-api
 ./gradlew build      # first run takes a few minutes
-./gradlew bootRun    # starts Redis and the Firestore emulator too
+./gradlew bootRun    # starts Redis and the Firebase emulators too
 curl localhost:8080/actuator/health
 ```
 

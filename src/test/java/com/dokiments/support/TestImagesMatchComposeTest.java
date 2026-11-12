@@ -35,6 +35,6 @@ class TestImagesMatchComposeTest {
         assertThat(composeImages)
                 .contains(
                         TestImages.REDIS.asCanonicalNameString(),
-                        TestImages.FIRESTORE_EMULATOR.asCanonicalNameString());
+                        TestImages.FIREBASE_EMULATORS.asCanonicalNameString());
     }
 }

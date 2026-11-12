@@ -144,6 +144,9 @@ ACCEPTED = {
     # Email layout: mail clients, Outlook above all, ignore CSS for table layout and need the
     # old width, align, valign and cellpadding attributes to lay an email out at all.
     ("src/main/resources/email/layout.html", "HtmlDeprecatedAttribute"),
+    # The Firebase CLI is only ever installed inside the emulators' image (see its Dockerfile),
+    # never next to package.json, which only pins its version.
+    ("docker/firebase-emulators/package.json", "PackageJsonMismatchedDependency"),
 }
 
 problems, skipped = [], Counter()

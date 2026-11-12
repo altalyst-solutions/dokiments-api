@@ -5,14 +5,13 @@ import org.springframework.boot.testcontainers.service.connection.ServiceConnect
 import org.springframework.context.annotation.Bean;
 import org.springframework.test.context.DynamicPropertyRegistrar;
 import org.testcontainers.containers.GenericContainer;
-import org.testcontainers.gcloud.FirestoreEmulatorContainer;
 
 /**
  * Real infrastructure for integration tests, started once per Spring test context.
  *
  * <p>Redis is wired in automatically through {@link ServiceConnection}. Spring Boot has no such support for the
- * Firestore emulator, so its address is passed to the application as a setting once the container is running. Every
- * test context gets a fresh, empty emulator, so tests never see local development data.
+ * Firebase emulators, so their addresses are passed to the application as settings once the container is running. Every
+ * test context gets fresh, empty emulators, so tests never see local development data.
  */
 @TestConfiguration(proxyBeanMethods = false)
 public class TestcontainersConfiguration {
@@ -26,13 +25,13 @@ public class TestcontainersConfiguration {
     }
 
     @Bean
-    FirestoreEmulatorContainer firestoreEmulatorContainer() {
-        return new FirestoreEmulatorContainer(TestImages.FIRESTORE_EMULATOR);
+    FirebaseEmulatorsContainer firebaseEmulatorsContainer() {
+        return new FirebaseEmulatorsContainer();
     }
 
-    /** Points the application at the emulator. The project ID comes from {@code application-test.yml}. */
+    /** Points the application at the emulators. The project ID comes from {@code application-test.yml}. */
     @Bean
-    DynamicPropertyRegistrar firestoreEmulatorProperties(FirestoreEmulatorContainer emulator) {
-        return registry -> registry.add("dokiments.firestore.emulator-host", emulator::getEmulatorEndpoint);
+    DynamicPropertyRegistrar firebaseEmulatorsProperties(FirebaseEmulatorsContainer emulators) {
+        return registry -> registry.add("dokiments.firestore.emulator-host", emulators::firestoreEndpoint);
     }
 }

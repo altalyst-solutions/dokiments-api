@@ -115,7 +115,6 @@ dependencies {
     testImplementation(libs.spring.boot.starter.security.test)
     testImplementation(libs.spring.boot.testcontainers)
     testImplementation(libs.testcontainers.junit.jupiter)
-    testImplementation(libs.testcontainers.gcloud)
     testImplementation(libs.spring.modulith.starter.test)
     testImplementation(libs.archunit.junit5)
     testRuntimeOnly(libs.junit.platform.launcher)
@@ -221,6 +220,49 @@ val integrationTest by tasks.registering(Test::class) {
     shouldRunAfter(tasks.test)
     // OpenApiSpecIT compares the API with this file, so editing it must re-run the tests.
     inputs.file("docs/openapi.yaml")
+    // Registered further down, so referred to by name.
+    dependsOn("buildFirebaseEmulatorsImage")
+}
+
+// The Docker command line. An IDE started from the desktop can give Gradle a PATH without the
+// folder Docker is installed in, so its usual install locations are tried as well.
+fun dockerCommand(): String {
+    val onPath =
+        System
+            .getenv("PATH")
+            .orEmpty()
+            .split(File.pathSeparator)
+            .map { File(it, "docker") }
+    val usual =
+        listOf(
+            "/usr/local/bin/docker",
+            "/opt/homebrew/bin/docker",
+            "${System.getProperty("user.home")}/.docker/bin/docker",
+            "/Applications/Docker.app/Contents/Resources/bin/docker",
+            "/usr/bin/docker",
+        ).map(::File)
+    return (onPath + usual).firstOrNull { it.canExecute() }?.path ?: "docker"
+}
+
+// The Firebase emulators image the integration tests run (see docker/firebase-emulators and
+// TestcontainersConfiguration), built under the same name compose.yaml uses. Docker's build cache
+// makes this take a second or two when nothing in that folder has changed.
+//
+// On a network with a TLS-inspecting proxy, set EXTRA_CA_PEM to the proxy's root certificate
+// (as for `docker compose --profile full up --build`): it is passed to the build as a secret.
+val buildFirebaseEmulatorsImage by tasks.registering(Exec::class) {
+    description = "Builds the Firebase emulators image used by the integration tests."
+    group = LifecycleBasePlugin.VERIFICATION_GROUP
+    val extraCa = providers.environmentVariable("EXTRA_CA_PEM").orNull?.ifBlank { null }
+    commandLine(
+        buildList {
+            addAll(listOf(dockerCommand(), "build", "--quiet", "--tag", "dokiments-firebase-emulators:local"))
+            if (extraCa != null) addAll(listOf("--secret", "id=extra_ca,env=EXTRA_CA_PEM"))
+            add("docker/firebase-emulators")
+        },
+    )
+    // Always handed to Docker, which knows whether anything changed.
+    outputs.upToDateWhen { false }
 }
 
 // `./gradlew updateOpenApi` rewrites docs/openapi.yaml from the code, after a deliberate change to the
@@ -237,6 +279,7 @@ val updateOpenApi by tasks.registering(Test::class) {
         includeTestsMatching("com.dokiments.platform.apidocs.OpenApiSpecIT")
     }
     systemProperty("openapi.update", "true")
+    dependsOn(buildFirebaseEmulatorsImage)
     // Always runs: its job is writing the file, not checking it.
     outputs.upToDateWhen { false }
 }
