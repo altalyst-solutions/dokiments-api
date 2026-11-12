@@ -152,6 +152,7 @@ When adding a setting, add it to `.env.example` and to the table above.
 | `/actuator/health` | Public | Overall health, including Redis and Firestore. Also `/actuator/health/liveness` and `/actuator/health/readiness` for container probes. |
 | `/actuator/info` | Public | Version, Git commit and Java version |
 | `POST /api/newsletter` | Public | Newsletter sign-up from the website |
+| `/swagger-ui.html`, `/v3/api-docs` | `dev` only | Swagger UI and the API description. Elsewhere they don't exist and answer `401`. |
 | Everything else | Denied (`401`) | Opened explicitly as features are added |
 
 ## Errors

@@ -53,6 +53,28 @@ Before pushing:
 ./gradlew build
 ```
 
+## The API contract
+
+The web app depends on the exact paths, bodies, status codes and error messages, so changes to them must be
+deliberate. Two things guard them:
+
+- **Integration tests** check each endpoint's status codes and exact response bodies (for example `NewsletterIT`).
+- **`docs/openapi.yaml`** is the committed description of the whole API, generated from the controllers by
+  springdoc. `OpenApiSpecIT` fails when the code describes something different. After an intended change, run:
+
+  ```bash
+  ./gradlew updateOpenApi
+  ```
+
+  It rewrites the file (Docker must be running), and its diff in the pull request shows the new contract.
+
+What every endpoint can answer (`400` for a body, `500`, `503`) is added to the description by
+`platform.apidocs.OpenApiConfiguration`. A controller describes only what is specific to it, with `@Operation`, and
+with `@ApiResponse` for its own errors, such as a `404`.
+
+The API reads and writes JSON only (`platform.web.JsonOnlyConfiguration`), whatever the `Accept` header asks for: a
+browser opening an API address asks for XML first, and would otherwise get it.
+
 ## IntelliJ inspections
 
 IntelliJ IDEA checks more than the build: Spring configuration, YAML, Gradle scripts, Markdown and spelling. In the

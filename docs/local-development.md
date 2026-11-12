@@ -68,6 +68,12 @@ It answers `200` with `{"status":"subscribed"}`. Every response also has an `X-T
 in the logs and in [Jaeger](#viewing-traces). Error responses use the bodies listed in
 [Errors](configuration.md#errors), for example `400 {"error":"Invalid request body."}` for `{"email":"nope"}`.
 
+**Swagger UI** lists every endpoint with its request and response bodies and its errors, and can send requests:
+open [localhost:8080/swagger-ui.html](http://localhost:8080/swagger-ui.html) (or your `PORT`) while `bootRun` is
+running, pick an endpoint and choose **Try it out**. The description behind it is at `/v3/api-docs` (JSON) and
+`/v3/api-docs.yaml`. Both exist only in the `dev` profile: deployed, those addresses answer `401` like any other closed
+path. Postman can import the description too (**Import**, then the `/v3/api-docs` address or `docs/openapi.yaml`).
+
 In Postman, choose the method, enter the address, and for a body pick **raw** and **JSON**: Postman then sets
 `Content-Type: application/json` itself.
 
