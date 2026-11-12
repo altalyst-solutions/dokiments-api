@@ -67,6 +67,8 @@ dependencies {
     // Web / API
     implementation(libs.spring.boot.starter.webmvc)
     implementation(libs.spring.boot.starter.validation)
+    // Describes the API (OpenAPI) and serves Swagger UI, in the dev profile only
+    implementation(libs.springdoc.openapi.webmvc.ui)
 
     // Calls to external services (Firebase Auth, Google, Resend)
     implementation(libs.spring.boot.starter.restclient)
@@ -217,6 +219,26 @@ val integrationTest by tasks.registering(Test::class) {
         includeTags(integrationTag)
     }
     shouldRunAfter(tasks.test)
+    // OpenApiSpecIT compares the API with this file, so editing it must re-run the tests.
+    inputs.file("docs/openapi.yaml")
+}
+
+// `./gradlew updateOpenApi` rewrites docs/openapi.yaml from the code, after a deliberate change to the
+// API. OpenApiSpecIT then passes again, and the change to the file shows the new contract in review.
+val updateOpenApi by tasks.registering(Test::class) {
+    description = "Rewrites docs/openapi.yaml from the application's API description."
+    group = "documentation"
+    testClassesDirs = sourceSets.test.get().output.classesDirs
+    classpath = sourceSets.test.get().runtimeClasspath
+    useJUnitPlatform {
+        includeTags(integrationTag)
+    }
+    filter {
+        includeTestsMatching("com.dokiments.platform.apidocs.OpenApiSpecIT")
+    }
+    systemProperty("openapi.update", "true")
+    // Always runs: its job is writing the file, not checking it.
+    outputs.upToDateWhen { false }
 }
 
 tasks.check {

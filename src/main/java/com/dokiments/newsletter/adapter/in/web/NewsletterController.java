@@ -2,6 +2,9 @@ package com.dokiments.newsletter.adapter.in.web;
 
 import com.dokiments.newsletter.application.port.in.SubscribeToNewsletter;
 import com.dokiments.newsletter.application.port.in.SubscribeToNewsletter.SubscribeCommand;
+import io.swagger.v3.oas.annotations.Operation;
+import io.swagger.v3.oas.annotations.media.Schema;
+import io.swagger.v3.oas.annotations.tags.Tag;
 import jakarta.validation.Valid;
 import jakarta.validation.constraints.NotNull;
 import org.springframework.web.bind.annotation.PostMapping;
@@ -15,6 +18,7 @@ import org.springframework.web.bind.annotation.RestController;
  * doesn't reveal who is on the list. An address that isn't plausible is {@code 400 Invalid request body.}
  */
 @RestController
+@Tag(name = "Newsletter")
 class NewsletterController {
 
     private final SubscribeToNewsletter subscribeToNewsletter;
@@ -24,14 +28,20 @@ class NewsletterController {
     }
 
     @PostMapping("/api/newsletter")
+    @Operation(
+            summary = "Subscribe to the newsletter",
+            description = "Public: no session needed. The address is trimmed and lower-cased; subscribing again with"
+                    + " the same address keeps one subscription, and the answer is the same either way.")
     SubscribeResponse subscribe(@Valid @RequestBody SubscribeRequest request) {
         subscribeToNewsletter.subscribe(new SubscribeCommand(request.email()));
         return new SubscribeResponse("subscribed");
     }
 
     /** The request body. Other fields are ignored, as in the web app. */
-    record SubscribeRequest(@NotNull String email) {}
+    record SubscribeRequest(
+            @NotNull @Schema(example = "jane@example.com") String email) {}
 
     /** The answer: always {@code subscribed}, also for an address that was already on the list. */
-    record SubscribeResponse(String status) {}
+    record SubscribeResponse(
+            @Schema(allowableValues = "subscribed") String status) {}
 }

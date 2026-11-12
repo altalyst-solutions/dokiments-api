@@ -38,6 +38,9 @@ flowchart LR
 Then check the editor's Problems view, or run `scripts/inspect.sh` where IntelliJ IDEA is installed. See
 [Testing and quality](testing-and-quality.md).
 
+If the change touches an endpoint, run `./gradlew updateOpenApi` and commit `docs/openapi.yaml`: the build fails
+until it matches the code.
+
 If the change adds or changes a command, convention or setting, update the matching guide in `docs/` and
 `.github/copilot-instructions.md`.
 

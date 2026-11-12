@@ -72,7 +72,19 @@ class ApplicationIT {
     }
 
     @ParameterizedTest
-    @ValueSource(strings = {"/", "/api/documents", "/api/auth/me", "/actuator/env", "/actuator/beans"})
+    @ValueSource(
+            strings = {
+                "/",
+                "/api/documents",
+                "/api/auth/me",
+                "/actuator/env",
+                "/actuator/beans",
+                // The API description and Swagger UI are only switched on in the dev profile.
+                "/v3/api-docs",
+                "/v3/api-docs.yaml",
+                "/swagger-ui.html",
+                "/swagger-ui/index.html"
+            })
     void everythingElseIsUnauthorisedWithoutCreatingASession(String path) {
         assertThat(mvc.get().uri(path)).hasStatus(HttpStatus.UNAUTHORIZED).doesNotContainHeader(HttpHeaders.SET_COOKIE);
 

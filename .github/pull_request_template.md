@@ -21,7 +21,7 @@ For example: feat(newsletter): add subscribe endpoint
 
 <!-- Keep the option that applies and describe any change. The web app depends on the first two. -->
 
-- **API contract:** no change / changed (paths, request or response bodies, status codes, `{ "error": "..." }` shape)
+- **API contract:** no change / changed (paths, request or response bodies, status codes, `{ "error": "..." }` shape; see the diff of `docs/openapi.yaml`)
 - **Firestore data:** no change / changed (collections, field names, field types)
 - **Configuration:** no change / new or changed environment variables (documented in `docs/configuration.md`)
 - **Security:** no change / new public endpoint, authentication or permission change

@@ -66,7 +66,7 @@ The `newsletter` module is the reference: copy its layout and naming for a new m
 | `application.port.in` | `SubscribeToNewsletter` with its `SubscribeCommand` | The use case: an interface named after what it does, with its input as a nested record. |
 | `application.port.out` | `NewsletterSubscribers` | What the use case needs, named after what it holds, not after Firestore. |
 | `application.service` | `NewsletterService` | Implements the use cases. Package-private and annotated `@Service`; takes a `Clock` rather than calling `Instant.now()`. |
-| `adapter.in.web` | `NewsletterController` with `SubscribeRequest` and `SubscribeResponse` | The endpoint. Package-private; the request and response records are the API contract, nested in the controller. |
+| `adapter.in.web` | `NewsletterController` with `SubscribeRequest` and `SubscribeResponse` | The endpoint. Package-private; the request and response records are the API contract, nested in the controller. `@Tag`, `@Operation` and `@Schema` describe it in `docs/openapi.yaml`. |
 | `adapter.out.firestore` | `FirestoreNewsletterSubscribers`, `NewsletterDocument` | Implements the outbound port with Firestore. The document record is the stored shape, mapped from the domain model. |
 
 Validation is split by what it protects:
