@@ -15,6 +15,7 @@ import java.net.ConnectException;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
+import org.junit.jupiter.params.provider.ValueSource;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
@@ -157,6 +158,26 @@ class ApiExceptionHandlerTest {
                 .hasHeader(HttpHeaders.ALLOW, "POST")
                 .bodyJson()
                 .isStrictlyEqualTo(body("Method not allowed."));
+    }
+
+    @Test
+    void answersAreJsonEvenWhenAClientAsksForXml() {
+        // What a browser sends when it opens an address directly: XML ranks above anything else.
+        assertThat(mvc.get()
+                        .uri("/probe/fail/not-found")
+                        .header(HttpHeaders.ACCEPT, "text/html,application/xhtml+xml,application/xml;q=0.9,*/*;q=0.8"))
+                .hasStatus(404)
+                .hasContentTypeCompatibleWith(MediaType.APPLICATION_JSON)
+                .bodyJson()
+                .isStrictlyEqualTo(body("Document not found."));
+    }
+
+    @ParameterizedTest
+    @ValueSource(strings = {"application/xml", "application/yaml", "application/cbor", "application/x-jackson-smile"})
+    void otherDataFormatsAreNeverProduced(String format) {
+        assertThat(mvc.get().uri("/probe/query?page=1").header(HttpHeaders.ACCEPT, format + ",*/*;q=0.1"))
+                .hasStatusOk()
+                .hasContentTypeCompatibleWith(MediaType.APPLICATION_JSON);
     }
 
     @Test
