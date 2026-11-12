@@ -1,0 +1,79 @@
+openapi: 3.1.0
+info:
+  description: "The backend of the Dokiments web app, which forwards its /api/* requests\
+    \ here. Every error answers with { \"error\": \"<message>\" }, a message safe\
+    \ to show to the user."
+  title: Dokiments API
+  version: "1"
+servers:
+- url: /
+paths:
+  /api/newsletter:
+    post:
+      description: "Public: no session needed. The address is trimmed and lower-cased;\
+        \ subscribing again with the same address keeps one subscription, and the\
+        \ answer is the same either way."
+      operationId: subscribe
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SubscribeRequest"
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SubscribeResponse"
+          description: OK
+        "400":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+          description: The body isn't valid JSON ("Request body must be valid JSON.")
+            or doesn't match what the endpoint expects ("Invalid request body.").
+        "500":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+          description: "An unexpected failure: \"Something went wrong. Please try\
+            \ again.\""
+        "503":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+          description: "An external service, such as Firestore, couldn't be reached:\
+            \ \"Couldn't reach an external service. Please try again in a moment.\""
+      summary: Subscribe to the newsletter
+      tags:
+      - Newsletter
+components:
+  schemas:
+    Error:
+      type: object
+      description: The body of every error response.
+      properties:
+        error:
+          type: string
+          description: A message safe to show to the user.
+      required:
+      - error
+    SubscribeRequest:
+      type: object
+      properties:
+        email:
+          type: string
+          example: jane@example.com
+      required:
+      - email
+    SubscribeResponse:
+      type: object
+      properties:
+        status:
+          type: string
+          enum:
+          - subscribed

@@ -67,6 +67,21 @@ dokiments:
     # The web app, for the links in emails.
     site-url: ${SITE_URL:https://dokiments.com}
 
+# The API's OpenAPI description and Swagger UI. Off here, so deployed services don't publish a
+# map of the API; application-dev.yml switches them on. docs/openapi.yaml is the committed copy.
+springdoc:
+  api-docs:
+    enabled: false
+  swagger-ui:
+    enabled: false
+  # The API reads and writes JSON and nothing else (see platform.web.JsonOnlyConfiguration), so the
+  # description says application/json instead of */*.
+  default-consumes-media-type: application/json
+  default-produces-media-type: application/json
+  # A stable order and layout, so the committed docs/openapi.yaml only changes when the API does.
+  writer-with-order-by-keys: true
+  writer-with-default-pretty-printer: true
+
 server:
   port: ${PORT:8080}
   shutdown: graceful

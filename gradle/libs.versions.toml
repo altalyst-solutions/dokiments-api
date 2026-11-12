@@ -9,6 +9,7 @@ spring-boot = "4.1.2"
 spring-modulith = "2.1.2"
 firebase-admin = "9.11.0"
 archunit = "1.5.1"
+springdoc = "3.2.0"
 
 # Code quality tooling
 spotless = "8.11.0"
@@ -44,6 +45,9 @@ spring-boot-starter-session-data-redis = { module = "org.springframework.boot:sp
 spring-boot-docker-compose = { module = "org.springframework.boot:spring-boot-docker-compose" }
 spring-boot-devtools = { module = "org.springframework.boot:spring-boot-devtools" }
 spring-boot-configuration-processor = { module = "org.springframework.boot:spring-boot-configuration-processor" }
+
+# API description (OpenAPI) and Swagger UI
+springdoc-openapi-webmvc-ui = { module = "org.springdoc:springdoc-openapi-starter-webmvc-ui", version.ref = "springdoc" }
 
 # Email templates (version from the Boot BOM)
 thymeleaf-spring6 = { module = "org.thymeleaf:thymeleaf-spring6" }

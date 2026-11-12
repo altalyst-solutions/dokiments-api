@@ -46,6 +46,14 @@ dokiments:
     restrict-recipients: true
     site-url: ${SITE_URL:http://localhost:3000}
 
+# The API description at /v3/api-docs and Swagger UI at /swagger-ui.html, to read and try the
+# endpoints locally.
+springdoc:
+  api-docs:
+    enabled: true
+  swagger-ui:
+    enabled: true
+
 management:
   tracing:
     sampling:
