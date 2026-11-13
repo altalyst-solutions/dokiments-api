@@ -25,6 +25,9 @@ spring:
       # Required. Any Redis provider, e.g. redis://user:pass@host:6379 or rediss:// for TLS.
       url: ${REDIS_URL}
   session:
+    # A session is kept in Redis for up to a day after it was last used. It ends one day after sign-in
+    # anyway (see auth.domain.AuthSession), however often it is used.
+    timeout: 24h
     data:
       redis:
         # Keeps session keys grouped and apart from anything else in the same Redis.
@@ -48,6 +51,12 @@ dokiments:
     document-sharing: ${DOCUMENT_SHARING_ENABLED:false}
     # Plan limits. On unless TIER_LOCKS_ENABLED=false, which is only meant for testing.
     tier-locks: ${TIER_LOCKS_ENABLED:true}
+  # Which Firebase Auth to use (see com.dokiments.auth.adapter.out.firebase.FirebaseAuthProperties).
+  # The Web API key is required: deployed, sign-in goes to the real Firebase Auth. Locally and in tests,
+  # FIREBASE_AUTH_EMULATOR_HOST points at the Auth emulator instead.
+  auth:
+    api-key: ${FIREBASE_API_KEY:}
+    emulator-host: ${FIREBASE_AUTH_EMULATOR_HOST:}
   # Which Firestore to use (see com.dokiments.platform.firestore.FirestoreProperties for the
   # safety rules). The project ID is required: deployed, it is the real Firebase project. The
   # empty default is deliberate: Spring Boot keeps a missing variable as the literal text

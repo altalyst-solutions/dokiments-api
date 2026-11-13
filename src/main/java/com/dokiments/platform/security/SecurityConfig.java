@@ -4,15 +4,20 @@ import com.dokiments.platform.web.ErrorMessages;
 import com.dokiments.platform.web.ErrorResponseWriter;
 import jakarta.servlet.DispatcherType;
 import jakarta.servlet.http.HttpServletResponse;
+import org.springframework.beans.factory.ObjectProvider;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
 import org.springframework.http.HttpMethod;
 import org.springframework.security.config.annotation.web.builders.HttpSecurity;
 import org.springframework.security.config.annotation.web.configurers.AbstractHttpConfigurer;
+import org.springframework.security.config.annotation.web.configurers.SessionManagementConfigurer;
+import org.springframework.security.config.http.SessionCreationPolicy;
 import org.springframework.security.web.SecurityFilterChain;
+import org.springframework.security.web.authentication.AnonymousAuthenticationFilter;
+import org.springframework.security.web.context.RequestAttributeSecurityContextRepository;
 
 /**
- * Deny-by-default security, until authentication is implemented.
+ * Deny-by-default security.
  *
  * <p>Only the health and info endpoints and the public endpoints listed below are open. Every other request is answered
  * with {@code 401}, which means nothing becomes reachable by accident while the API is being built. Endpoints are
@@ -22,7 +27,10 @@ import org.springframework.security.web.SecurityFilterChain;
 class SecurityConfig {
 
     @Bean
-    SecurityFilterChain securityFilterChain(HttpSecurity http, ErrorResponseWriter errorResponseWriter) {
+    SecurityFilterChain securityFilterChain(
+            HttpSecurity http,
+            ErrorResponseWriter errorResponseWriter,
+            ObjectProvider<RequestAuthenticator> authenticators) {
         return http.authorizeHttpRequests(requests -> requests
                         // When something fails outside a controller, the servlet container forwards the request
                         // internally to Spring Boot's /error page to write the response. That forward has to be
@@ -35,12 +43,34 @@ class SecurityConfig {
                         // Public newsletter sign-up from the website.
                         .requestMatchers(HttpMethod.POST, "/api/newsletter")
                         .permitAll()
+                        // Signing in, up and out need no session. /me answers anyone: with the user, or with 401
+                        // and the body the web app expects for "not signed in".
+                        .requestMatchers(
+                                HttpMethod.POST, "/api/auth/sign-up", "/api/auth/sign-in", "/api/auth/sign-out")
+                        .permitAll()
+                        .requestMatchers(HttpMethod.GET, "/api/auth/me")
+                        .permitAll()
                         .anyRequest()
                         .denyAll())
-                // Cross-site request forgery tricks a signed-in browser into sending a request with its
-                // cookies. Public endpoints that use no session can't be abused that way, so they don't need a
-                // CSRF token, which the web app doesn't send.
-                .csrf(csrf -> csrf.ignoringRequestMatchers("/api/newsletter"))
+                // Cross-site request forgery tricks a signed-in browser into sending a request with its cookies.
+                // Every request that changes something must carry a token that another site can't read: the
+                // token is in the readable XSRF-TOKEN cookie, and the web app sends it back in the X-XSRF-TOKEN
+                // header (Spring's setup for single-page apps). Signing in and up are covered too, so another
+                // site can't sign a visitor into an account of its choosing. The newsletter sign-up uses no
+                // session at all, so there is nothing to forge.
+                .csrf(csrf -> csrf.spa().ignoringRequestMatchers(CsrfExemptions.PATHS.toArray(String[]::new)))
+                // Who sent the request comes from the session on every request (see RequestAuthenticator), so
+                // Spring Security keeps nothing in the session itself and never creates one: only signing in does.
+                .securityContext(
+                        context -> context.securityContextRepository(new RequestAttributeSecurityContextRepository()))
+                .sessionManagement(sessions -> sessions.sessionCreationPolicy(SessionCreationPolicy.NEVER)
+                        // Spring Security would take the user set on every request for a fresh sign-in and give the
+                        // session a new ID each time. Signing in does that itself, once, where it belongs.
+                        .sessionFixation(SessionManagementConfigurer.SessionFixationConfigurer::none))
+                .addFilterBefore(
+                        new RequestAuthenticationFilter(
+                                authenticators.orderedStream().toList(), errorResponseWriter),
+                        AnonymousAuthenticationFilter.class)
                 // No browser login page or Basic auth dialog: an API answers with a status code.
                 .formLogin(AbstractHttpConfigurer::disable)
                 .httpBasic(AbstractHttpConfigurer::disable)

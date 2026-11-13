@@ -8,6 +8,195 @@ info:
 servers:
 - url: /
 paths:
+  /api/auth/me:
+    get:
+      description: The web app calls this when it starts. The ID token is refreshed
+        first when it is about to run out.
+      operationId: me
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthResponse"
+          description: Signed in
+        "401":
+          content:
+            application/json:
+              schema:
+                type: "null"
+          description: "Not signed in, or the session has ended. The body is null,\
+            \ as the web app expects."
+        "500":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+          description: "An unexpected failure: \"Something went wrong. Please try\
+            \ again.\""
+        "503":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+          description: "An external service, such as Firestore, couldn't be reached:\
+            \ \"Couldn't reach an external service. Please try again in a moment.\""
+      summary: Who is signed in
+      tags:
+      - Auth
+  /api/auth/sign-in:
+    post:
+      description: "Checks the email address and password with Firebase and starts\
+        \ a session, as for sign-up. The password has no maximum length. The promo\
+        \ code is accepted but not redeemed yet."
+      operationId: signIn
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SignInRequest"
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthResponse"
+          description: Signed in
+        "400":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+          description: The body isn't valid JSON ("Request body must be valid JSON.")
+            or doesn't match what the endpoint expects ("Invalid request body.").
+        "401":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+          description: "Firebase refused, with a message for the user, such as \"\
+            The email or password is incorrect.\" or \"Too many attempts. Please try\
+            \ again later.\""
+        "403":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+          description: "The CSRF token is missing or wrong: send the value of the\
+            \ XSRF-TOKEN cookie in the X-XSRF-TOKEN header (\"Forbidden.\")."
+        "500":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+          description: "An unexpected failure: \"Something went wrong. Please try\
+            \ again.\""
+        "503":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+          description: "An external service, such as Firestore, couldn't be reached:\
+            \ \"Couldn't reach an external service. Please try again in a moment.\""
+      summary: Sign in
+      tags:
+      - Auth
+  /api/auth/sign-out:
+    post:
+      description: "Ends the session and expires both session cookies. Always succeeds,\
+        \ also when not signed in."
+      operationId: signOut
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SignOutResponse"
+          description: OK
+        "403":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+          description: "The CSRF token is missing or wrong: send the value of the\
+            \ XSRF-TOKEN cookie in the X-XSRF-TOKEN header (\"Forbidden.\")."
+        "500":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+          description: "An unexpected failure: \"Something went wrong. Please try\
+            \ again.\""
+        "503":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+          description: "An external service, such as Firestore, couldn't be reached:\
+            \ \"Couldn't reach an external service. Please try again in a moment.\""
+      summary: Sign out
+      tags:
+      - Auth
+  /api/auth/sign-up:
+    post:
+      description: "Creates the Firebase account and its profile (role free), asks\
+        \ Firebase to send a verification email, and starts a session: the dokiments-session\
+        \ cookie, and the readable dokiments-session-expiry cookie with the session's\
+        \ end in milliseconds. The promo code is accepted but not redeemed yet."
+      operationId: signUp
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SignUpRequest"
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthResponse"
+          description: Signed up and signed in
+        "400":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+          description: The body isn't valid JSON ("Request body must be valid JSON.")
+            or doesn't match what the endpoint expects ("Invalid request body.").
+        "401":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+          description: "Firebase refused, with a message for the user, such as \"\
+            An account already exists for this email.\" or \"Use a stronger password\
+            \ with at least 6 characters.\""
+        "403":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+          description: "The CSRF token is missing or wrong: send the value of the\
+            \ XSRF-TOKEN cookie in the X-XSRF-TOKEN header (\"Forbidden.\")."
+        "500":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+          description: "An unexpected failure: \"Something went wrong. Please try\
+            \ again.\""
+        "503":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+          description: "An external service, such as Firestore, couldn't be reached:\
+            \ \"Couldn't reach an external service. Please try again in a moment.\""
+      summary: Create an account and sign in
+      tags:
+      - Auth
   /api/newsletter:
     post:
       description: "Public: no session needed. The address is trimmed and lower-cased;\
@@ -53,6 +242,54 @@ paths:
       - Newsletter
 components:
   schemas:
+    AuthResponse:
+      type: object
+      properties:
+        user:
+          $ref: "#/components/schemas/AuthUserResponse"
+    AuthUserResponse:
+      type: object
+      properties:
+        address:
+          type: string
+        brn:
+          type: string
+        businessEmail:
+          type: string
+        companyName:
+          type: string
+        displayName:
+          type: string
+        email:
+          type: string
+        emailVerified:
+          type: boolean
+          description: Whether Firebase has confirmed the address.
+        fullName:
+          type: string
+        linkedGoogle:
+          type: boolean
+        phone:
+          type: string
+        provider:
+          type: string
+          enum:
+          - password
+          - google
+        role:
+          type: string
+          enum:
+          - superadmin
+          - free
+          - silver
+          - gold
+          - special
+        tel:
+          type: string
+        uid:
+          type: string
+        website:
+          type: string
     Error:
       type: object
       description: The body of every error response.
@@ -62,6 +299,45 @@ components:
           description: A message safe to show to the user.
       required:
       - error
+    SignInRequest:
+      type: object
+      properties:
+        email:
+          type: string
+          example: jane@example.com
+        password:
+          type: string
+        promoCode:
+          type: string
+          maxLength: 64
+          minLength: 0
+      required:
+      - email
+      - password
+    SignOutResponse:
+      type: object
+      properties:
+        ok:
+          type: boolean
+    SignUpRequest:
+      type: object
+      properties:
+        displayName:
+          type: string
+          example: Jane Doe
+        email:
+          type: string
+          example: jane@example.com
+        password:
+          type: string
+        promoCode:
+          type: string
+          maxLength: 64
+          minLength: 0
+      required:
+      - displayName
+      - email
+      - password
     SubscribeRequest:
       type: object
       properties:

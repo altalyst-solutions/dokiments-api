@@ -86,7 +86,12 @@ class ApplicationIT {
                 "/swagger-ui/index.html"
             })
     void everythingElseIsUnauthorisedWithoutCreatingASession(String path) {
-        assertThat(mvc.get().uri(path)).hasStatus(HttpStatus.UNAUTHORIZED).doesNotContainHeader(HttpHeaders.SET_COOKIE);
+        var result = mvc.get().uri(path).exchange();
+
+        assertThat(result).hasStatus(HttpStatus.UNAUTHORIZED);
+        // Only the CSRF token's cookie, which every response may set; never a session cookie.
+        assertThat(result.getResponse().getHeaders(HttpHeaders.SET_COOKIE))
+                .noneMatch(cookie -> cookie.startsWith("dokiments-session"));
 
         assertThat(redis.keys("*"))
                 .as("a rejected anonymous request must not leave a session in Redis")

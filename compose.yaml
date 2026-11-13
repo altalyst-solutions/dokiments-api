@@ -90,6 +90,9 @@ services:
       # The Compose emulator, with its "demo-" project ID, never a real project.
       FIREBASE_PROJECT_ID: demo-dokiments
       FIRESTORE_EMULATOR_HOST: firebase:${FIRESTORE_EMULATOR_PORT:-8085}
+      FIREBASE_AUTH_EMULATOR_HOST: firebase:${AUTH_EMULATOR_PORT:-9099}
+      # The container serves plain HTTP on this machine, where a Secure cookie would never be sent back.
+      DOKIMENTS_AUTH_SECURE_COOKIES: "false"
     ports:
       - "${API_PORT:-8080}:8080"
     depends_on:

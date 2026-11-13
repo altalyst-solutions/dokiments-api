@@ -8,6 +8,9 @@ spring:
       url: redis://overridden-by-testcontainers:6379
 
 dokiments:
+  # The emulator hosts are set by TestcontainersConfiguration once its container has started.
+  auth:
+    require-emulator: true
   firestore:
     # The emulator host is set by TestcontainersConfiguration once its container has started.
     project-id: demo-dokiments

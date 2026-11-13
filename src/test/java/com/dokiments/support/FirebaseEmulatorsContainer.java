@@ -22,6 +22,11 @@ public final class FirebaseEmulatorsContainer extends GenericContainer<FirebaseE
         setWaitStrategy(Wait.forLogMessage(".*\\[firebase-emulators\\] Ready:.*", 1));
     }
 
+    /** {@code host:port} of the Auth emulator, as {@code FIREBASE_AUTH_EMULATOR_HOST} expects it. */
+    public String authEndpoint() {
+        return getHost() + ":" + getMappedPort(AUTH_PORT);
+    }
+
     /** {@code host:port} of the Firestore emulator, as {@code FIRESTORE_EMULATOR_HOST} expects it. */
     public String firestoreEndpoint() {
         return getHost() + ":" + getMappedPort(FIRESTORE_PORT);

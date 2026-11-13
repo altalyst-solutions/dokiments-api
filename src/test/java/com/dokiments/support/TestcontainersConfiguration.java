@@ -32,6 +32,9 @@ public class TestcontainersConfiguration {
     /** Points the application at the emulators. The project ID comes from {@code application-test.yml}. */
     @Bean
     DynamicPropertyRegistrar firebaseEmulatorsProperties(FirebaseEmulatorsContainer emulators) {
-        return registry -> registry.add("dokiments.firestore.emulator-host", emulators::firestoreEndpoint);
+        return registry -> {
+            registry.add("dokiments.firestore.emulator-host", emulators::firestoreEndpoint);
+            registry.add("dokiments.auth.emulator-host", emulators::authEndpoint);
+        };
     }
 }
