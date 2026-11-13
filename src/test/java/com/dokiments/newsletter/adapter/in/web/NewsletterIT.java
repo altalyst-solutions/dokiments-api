@@ -67,10 +67,12 @@ class NewsletterIT {
 
     @Test
     void noSessionIsCreated() {
-        assertThat(subscribe("{\"email\": \"jane@example.com\"}"))
-                .hasStatusOk()
-                .headers()
-                .doesNotContainHeader(HttpHeaders.SET_COOKIE);
+        var result = subscribe("{\"email\": \"jane@example.com\"}").exchange();
+
+        assertThat(result).hasStatusOk();
+        // Only the CSRF token's cookie, which every response may set; never a session cookie.
+        assertThat(result.getResponse().getHeaders(HttpHeaders.SET_COOKIE))
+                .noneMatch(cookie -> cookie.startsWith("dokiments-session"));
     }
 
     @Test

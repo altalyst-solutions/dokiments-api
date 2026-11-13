@@ -1,5 +1,6 @@
 package com.dokiments.platform.apidocs;
 
+import com.dokiments.platform.security.CsrfExemptions;
 import com.dokiments.platform.web.ErrorMessages;
 import io.swagger.v3.oas.models.Components;
 import io.swagger.v3.oas.models.OpenAPI;
@@ -14,6 +15,8 @@ import io.swagger.v3.oas.models.responses.ApiResponse;
 import io.swagger.v3.oas.models.responses.ApiResponses;
 import io.swagger.v3.oas.models.servers.Server;
 import java.util.List;
+import java.util.Objects;
+import java.util.stream.Stream;
 import org.springdoc.core.customizers.OpenApiCustomizer;
 import org.springframework.context.annotation.Bean;
 import org.springframework.context.annotation.Configuration;
@@ -66,9 +69,14 @@ class OpenApiConfiguration {
             }
             openApi.getComponents().addSchemas(ERROR_SCHEMA, errorSchema());
             if (openApi.getPaths() != null) {
-                openApi.getPaths()
-                        .values()
-                        .forEach(path -> path.readOperations().forEach(OpenApiConfiguration::addErrors));
+                openApi.getPaths().forEach((path, item) -> {
+                    item.readOperations().forEach(OpenApiConfiguration::addErrors);
+                    if (!CsrfExemptions.PATHS.contains(path)) {
+                        Stream.of(item.getPost(), item.getPut(), item.getPatch(), item.getDelete())
+                                .filter(Objects::nonNull)
+                                .forEach(OpenApiConfiguration::addCsrfError);
+                    }
+                });
             }
         };
     }
@@ -89,6 +97,15 @@ class OpenApiConfiguration {
                 "An external service, such as Firestore, couldn't be reached: \"" + ErrorMessages.UPSTREAM_UNAVAILABLE
                         + "\"");
         operation.setResponses(responses);
+    }
+
+    /** Requests that change something are refused without the CSRF token (see {@code platform.security}). */
+    static void addCsrfError(Operation operation) {
+        addIfAbsent(
+                operation.getResponses(),
+                "403",
+                "The CSRF token is missing or wrong: send the value of the XSRF-TOKEN cookie in the X-XSRF-TOKEN"
+                        + " header (\"" + ErrorMessages.FORBIDDEN + "\").");
     }
 
     /** Keeps a controller's own description of the same status, which is more specific. */

@@ -143,6 +143,22 @@ Rules, enforced by `HexagonalArchitectureTest` (ArchUnit) and `ModularityTest` (
 - Swagger UI and `/v3/api-docs` exist only in the `dev` profile. Never enable them elsewhere.
 - The API reads and writes JSON only (`platform.web.JsonOnlyConfiguration`). Don't add other body formats.
 
+## Auth and sessions
+
+- Who sent a request comes from `auth.adapter.in.web.SessionAuthenticator`, which implements
+  `platform.security.RequestAuthenticator`. A controller reads the signed-in session with
+  `@AuthenticationPrincipal AuthSession`; never read cookies or the HTTP session yourself.
+- A session ends one day after sign-in (`AuthSession.MAX_AGE`), and refreshing the Firebase tokens must never move
+  that. Only signing in and signing up start a session (`SessionStore.start`, which also issues a new session ID).
+- The session is stored as JSON text, never as Java objects, so a change in its shape signs people out instead of
+  failing requests.
+- Firebase tokens never appear in responses or logs: the `toString` of everything holding them leaves them out.
+- Every request that changes something needs the CSRF token (`X-XSRF-TOKEN` from the `XSRF-TOKEN` cookie). Only an
+  endpoint that uses no session may be exempted, in `platform.security.CsrfExemptions`.
+- Firebase Auth's refusals become `UnauthenticatedException` with the web app's message (see
+  `auth.adapter.out.firebase.FirebaseErrors`). Keep that wording: the web app shows it.
+- Locally and in tests, Firebase Auth is the emulator with the `demo-dokiments` project, like Firestore.
+
 ## Errors
 
 - For an expected failure, throw one of the exceptions in `com.dokiments.shared.error` (`InvalidRequestException`,
@@ -226,8 +242,8 @@ Rules, enforced by `HexagonalArchitectureTest` (ArchUnit) and `ModularityTest` (
 
 ## Security
 
-- Security is deny-by-default (`platform/security/SecurityConfig`). Only `/actuator/health/**` and `/actuator/info`
-  are public. Open each new endpoint explicitly and deliberately.
+- Security is deny-by-default (`platform/security/SecurityConfig`). Open each new endpoint explicitly and
+  deliberately: as public, or as signed-in only.
 - The request cache is disabled on purpose. Re-enabling it creates a Redis session for every rejected anonymous
   request.
 - Error responses must never include stack traces, exception names or internal messages.

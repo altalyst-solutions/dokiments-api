@@ -84,6 +84,36 @@ variable. Point `baseUrl` at `http://localhost:3000` for the web app's own API o
 one, to compare the two answers to the same request. They use different data: the web app its configured Firebase
 project, this API the local emulator.
 
+### Signing in
+
+Requests that change something need the CSRF token from the `XSRF-TOKEN` cookie in the `X-XSRF-TOKEN` header (see
+[CSRF tokens](configuration.md#csrf-tokens)), and the session lives in cookies, so keep the cookies between requests.
+With `curl`, a cookie jar does that:
+
+```bash
+# Any answer sets the CSRF cookie.
+curl -s -c cookies.txt -o /dev/null localhost:8080/api/auth/me
+TOKEN=$(awk '$6 == "XSRF-TOKEN" {print $7}' cookies.txt)
+
+curl -i -b cookies.txt -c cookies.txt -H "X-XSRF-TOKEN: $TOKEN" -H 'Content-Type: application/json' \
+  -d '{"displayName":"Jane","email":"jane@example.com","password":"secret123"}' localhost:8080/api/auth/sign-up
+
+curl -i -b cookies.txt localhost:8080/api/auth/me
+```
+
+Accounts are created in the Auth emulator: see them, or add some, under **Authentication** in the
+[Emulator UI](#looking-at-the-data). Nothing reaches a real Firebase project. The emulator sends no email: the link of
+the verification email that signing up asks for is printed in its log instead (`docker compose logs firebase`), and
+opening it marks the address as verified.
+
+In Postman, send `GET /api/auth/me` first: Postman keeps the cookies it receives for `localhost`. Then add the header
+`X-XSRF-TOKEN` with the value `{{xsrf}}` to requests that change something, and set the variable with this script on
+the request's **Scripts**, **Pre-request** tab:
+
+```javascript
+pm.variables.set("xsrf", pm.cookies.get("XSRF-TOKEN"));
+```
+
 Endpoints that aren't built yet answer `401`. To see what a request stored, read the emulator directly, as in
 [Looking at the data](#looking-at-the-data).
 

@@ -18,7 +18,7 @@ public class ErrorResponseWriter {
 
     private final JsonMapper jsonMapper;
 
-    ErrorResponseWriter(JsonMapper jsonMapper) {
+    public ErrorResponseWriter(JsonMapper jsonMapper) {
         this.jsonMapper = jsonMapper;
     }
 

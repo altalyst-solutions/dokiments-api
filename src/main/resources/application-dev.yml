@@ -40,6 +40,14 @@ dokiments:
     emulator-host: ${FIRESTORE_EMULATOR_HOST:localhost:${FIRESTORE_EMULATOR_PORT:8085}}
     require-emulator: true
 
+  # Always the local Auth emulator from compose.yaml, never a real project: require-emulator makes the
+  # application refuse to start otherwise.
+  auth:
+    emulator-host: ${FIREBASE_AUTH_EMULATOR_HOST:localhost:${AUTH_EMULATOR_PORT:9099}}
+    require-emulator: true
+    # Locally the API runs on plain http://localhost, where a Secure cookie would never be sent back.
+    secure-cookies: false
+
   # Only the addresses on EMAIL_ALLOW_LIST ever receive email locally, even with a Resend key, so
   # trying something out can't email a real user. Links point at the web app running locally.
   email:
@@ -53,6 +61,10 @@ springdoc:
     enabled: true
   swagger-ui:
     enabled: true
+    # "Try it out" sends the CSRF token from the XSRF-TOKEN cookie, as the web app does, so requests that
+    # change something work from Swagger UI too.
+    csrf:
+      enabled: true
 
 management:
   tracing:

@@ -9,6 +9,8 @@ All configuration comes from environment variables, so the same image runs on an
 | --- | --- | --- |
 | `REDIS_URL` | Yes, outside `dev` | Redis connection, for example `redis://host:6379` or `rediss://user:password@host:6379` for TLS. The application refuses to start without it. In `dev` it defaults to the Compose service. |
 | `PORT` | No | HTTP port. Defaults to `8080`. |
+| `FIREBASE_API_KEY` | Yes, outside `dev` | The Firebase project's Web API key, for signing up and in. Without it (and without the Auth emulator) the application refuses to start. |
+| `FIREBASE_AUTH_EMULATOR_HOST` | No | `host:port` of the Firebase Auth emulator to use instead of the real Firebase Auth. Only allowed with a `demo-` project ID, and required wherever the Firestore emulator is used. In `dev` it is the Compose emulator. |
 | `FIREBASE_PROJECT_ID` | Yes, outside `dev` | Firebase project holding the Firestore database. In `dev` and tests it is `demo-dokiments` on the emulator. |
 | `FIRESTORE_EMULATOR_HOST` | No | `host:port` of a Firestore emulator to use instead of the real Firestore. Only allowed with a `demo-` project ID. |
 | `GOOGLE_APPLICATION_CREDENTIALS` | Outside Google Cloud | Path to service account credentials for Firestore. On Cloud Run, the attached service account is used instead, so no file is needed. |
@@ -113,6 +115,30 @@ emails by `template` and `result` (`sent`, `disabled`, `blocked`, `invalid_recip
 
 To view traces locally, see [Viewing traces](local-development.md#viewing-traces).
 
+## Sessions
+
+Signing up or in starts a session, kept in Redis behind two cookies:
+
+| Cookie | Readable by JavaScript | Holds |
+| --- | --- | --- |
+| `dokiments-session` | No (HttpOnly) | The session's ID. The Firebase tokens stay on the server. |
+| `dokiments-session-expiry` | Yes | When the session ends, in milliseconds since 1970, so the web app can schedule its sign-out. It decides nothing. |
+
+Both are `SameSite=Lax` and, outside `dev`, `Secure`. A session lasts one day from sign-in, however much it is used:
+refreshing the Firebase ID token (about hourly, just before it runs out) never extends it. A session past its end,
+or whose refresh Firebase refuses, is signed out, and the next request answers `401`. When Firebase can't be reached
+during a refresh, the request answers `503` and the session is kept.
+
+### CSRF tokens
+
+Every request that changes something (`POST`, `PUT`, `PATCH`, `DELETE`), signing in and up included, must carry a CSRF
+token. The token comes in the readable `XSRF-TOKEN` cookie, set on any response, and goes back in the `X-XSRF-TOKEN`
+header. Without it the answer is `403 {"error":"Forbidden."}`. The newsletter sign-up is the only exception: it uses
+no session, so there is nothing to forge.
+
+The web app reads that cookie and sends the header on every such request. Swagger UI does the same in `dev`; for
+`curl` and Postman, see [Trying requests](local-development.md#trying-requests).
+
 ## Local settings
 
 For local development, put your own values in a `.env` file in the project folder. Start from the example, which lists
@@ -156,6 +182,8 @@ When adding a setting, add it to `.env.example` and to the table above.
 | `/actuator/health` | Public | Overall health, including Redis and Firestore. Also `/actuator/health/liveness` and `/actuator/health/readiness` for container probes. |
 | `/actuator/info` | Public | Version, Git commit and Java version |
 | `POST /api/newsletter` | Public | Newsletter sign-up from the website |
+| `POST /api/auth/sign-up`, `POST /api/auth/sign-in`, `POST /api/auth/sign-out` | Public, CSRF token | Signing up, in and out (see [Sessions](#sessions)) |
+| `GET /api/auth/me` | Public | The signed-in user, or `401` with the body `null` |
 | `/swagger-ui.html`, `/v3/api-docs` | `dev` only | Swagger UI and the API description. Elsewhere they don't exist and answer `401`. |
 | Everything else | Denied (`401`) | Opened explicitly as features are added |
 
