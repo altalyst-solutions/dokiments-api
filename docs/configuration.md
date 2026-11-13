@@ -189,6 +189,7 @@ set as a real environment variable, such as `PORT=8090 ./gradlew bootRun`, still
 | `REDIS_URL` | not set | Use a different Redis instead of the one Docker Compose starts |
 | `SITE_URL` | `http://localhost:3000` | The web app, for links in emails |
 | `EMAIL_ALLOW_LIST` | not set | The only addresses that receive email locally (see [Email](#email)) |
+| `GOOGLE_CLIENT_ID` | not set | The OAuth client for Google sign-in locally; its secret goes in your shell (see [Google sign-in](#google-sign-in)) |
 | `JAEGER_UI_PORT` | `16686` | Host port of the Jaeger trace viewer |
 | `OTLP_PORT` | `4318` | Host port Jaeger receives traces on |
 
