@@ -42,6 +42,20 @@ public record AuthSession(UserProfile user, boolean emailVerified, AuthTokens to
         return !now.plus(REFRESH_AHEAD).isBefore(tokens.idTokenExpiresAt());
     }
 
+    /**
+     * The same session with new tokens, for example after a password change, ending at the same time as before.
+     *
+     * @param nowVerified whether the address is confirmed as of the new tokens
+     */
+    public AuthSession withTokens(AuthTokens newTokens, boolean nowVerified) {
+        return new AuthSession(user, nowVerified, newTokens, expiresAt);
+    }
+
+    /** The same session for the profile as it is now, after a change in settings. */
+    public AuthSession withUser(UserProfile currentUser) {
+        return new AuthSession(currentUser, emailVerified, tokens, expiresAt);
+    }
+
     /** The same session with new tokens and the profile as it is now, ending at the same time as before. */
     public AuthSession refreshed(UserProfile currentUser, boolean nowVerified, AuthTokens newTokens) {
         return new AuthSession(currentUser, nowVerified, newTokens, expiresAt);

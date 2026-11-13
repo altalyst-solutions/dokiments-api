@@ -21,6 +21,7 @@ public abstract sealed class DokimentsException extends RuntimeException
                 ForbiddenException,
                 NotFoundException,
                 ConflictException,
+                TooManyRequestsException,
                 UpstreamUnavailableException {
 
     @Serial
@@ -34,5 +35,13 @@ public abstract sealed class DokimentsException extends RuntimeException
     public String publicMessage() {
         String message = getMessage();
         return message != null ? message : "";
+    }
+
+    /**
+     * A code the client acts on, sent next to the message as {@code "code"}, or {@code null} for none. Only for the few
+     * failures the web app handles in code rather than by showing the message, such as {@code REAUTH_REQUIRED}.
+     */
+    public @Nullable String publicCode() {
+        return null;
     }
 }

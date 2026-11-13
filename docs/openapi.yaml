@@ -8,6 +8,53 @@ info:
 servers:
 - url: /
 paths:
+  /api/auth/forgot-password:
+    post:
+      description: Public. Firebase sends the link to the account with this address.
+      operationId: forgotPassword
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/EmailRequest"
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OkResponse"
+          description: Sent
+        "400":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+          description: "An invalid body, or Firebase refusing, with its message"
+        "403":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+          description: "The CSRF token is missing or wrong: send the value of the\
+            \ XSRF-TOKEN cookie in the X-XSRF-TOKEN header (\"Forbidden.\")."
+        "500":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+          description: "An unexpected failure: \"Something went wrong. Please try\
+            \ again.\""
+        "503":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+          description: "An external service, such as Firestore, couldn't be reached:\
+            \ \"Couldn't reach an external service. Please try again in a moment.\""
+      summary: Send a password reset link
+      tags:
+      - Account
   /api/auth/me:
     get:
       description: The web app calls this when it starts. The ID token is refreshed
@@ -44,6 +91,150 @@ paths:
       summary: Who is signed in
       tags:
       - Auth
+  /api/auth/reauthenticate:
+    post:
+      description: "Signs in again with the session's own address and the password\
+        \ sent, so a change that needs a recent sign-in can go ahead. The session\
+        \ keeps its end."
+      operationId: reauthenticate
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PasswordRequest"
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OkResponse"
+          description: Confirmed
+        "400":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+          description: "A Google account, an invalid body, or a wrong password (\"\
+            The email or password is incorrect.\")"
+        "401":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+          description: Not signed in
+        "403":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+          description: "The CSRF token is missing or wrong: send the value of the\
+            \ XSRF-TOKEN cookie in the X-XSRF-TOKEN header (\"Forbidden.\")."
+        "500":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+          description: "An unexpected failure: \"Something went wrong. Please try\
+            \ again.\""
+        "503":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+          description: "An external service, such as Firestore, couldn't be reached:\
+            \ \"Couldn't reach an external service. Please try again in a moment.\""
+      summary: Confirm the current password
+      tags:
+      - Account
+  /api/auth/refresh-verification:
+    post:
+      description: "Refreshes the session's tokens now, so the user's emailVerified\
+        \ reflects a verification link opened in the meantime. A refresh token Firebase\
+        \ refuses ends the session (401)."
+      operationId: refreshVerification
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthResponse"
+          description: "The user, as of the new tokens"
+        "401":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+          description: Not signed in
+        "403":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+          description: "The CSRF token is missing or wrong: send the value of the\
+            \ XSRF-TOKEN cookie in the X-XSRF-TOKEN header (\"Forbidden.\")."
+        "500":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+          description: "An unexpected failure: \"Something went wrong. Please try\
+            \ again.\""
+        "503":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+          description: "An external service, such as Firestore, couldn't be reached:\
+            \ \"Couldn't reach an external service. Please try again in a moment.\""
+      summary: Pick up a verified address
+      tags:
+      - Account
+  /api/auth/send-verification:
+    post:
+      description: Nothing is sent when the address is verified already. The answer
+        has no body either way.
+      operationId: sendVerification
+      responses:
+        "204":
+          description: "Sent, or not needed"
+        "401":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+          description: Not signed in
+        "403":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+          description: "The CSRF token is missing or wrong: send the value of the\
+            \ XSRF-TOKEN cookie in the X-XSRF-TOKEN header (\"Forbidden.\")."
+        "429":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+          description: "Firebase is throttling the account: \"Too many attempts. Please\
+            \ try again later.\""
+        "500":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+          description: "An unexpected failure: \"Something went wrong. Please try\
+            \ again.\""
+        "503":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+          description: "An external service, such as Firestore, couldn't be reached:\
+            \ \"Couldn't reach an external service. Please try again in a moment.\""
+      summary: Send the verification email again
+      tags:
+      - Account
   /api/auth/sign-in:
     post:
       description: "Checks the email address and password with Firebase and starts\
@@ -197,6 +388,117 @@ paths:
       summary: Create an account and sign in
       tags:
       - Auth
+  /api/auth/update-password:
+    post:
+      description: "The new password is at most 128 characters; Firebase judges whether\
+        \ it is strong enough. When the session is too old for a password change,\
+        \ the answer is 403 with the code REAUTH_REQUIRED: confirm the current password\
+        \ with /api/auth/reauthenticate, then try again."
+      operationId: updatePassword
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/PasswordRequest"
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/OkResponse"
+          description: Changed
+        "400":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+          description: "A Google account (\"This account signs in with Google — there\
+            \ is no password to change.\"), an invalid body, or Firebase refusing,\
+            \ with its message"
+        "401":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+          description: Not signed in
+        "403":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+          description: "REAUTH_REQUIRED, or a missing CSRF token"
+        "500":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+          description: "An unexpected failure: \"Something went wrong. Please try\
+            \ again.\""
+        "503":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+          description: "An external service, such as Firestore, couldn't be reached:\
+            \ \"Couldn't reach an external service. Please try again in a moment.\""
+      summary: Change the password
+      tags:
+      - Account
+  /api/auth/update-profile:
+    post:
+      description: "Every field is trimmed; a missing one counts as empty, which clears\
+        \ it. The answer has the user as changed, with empty details as empty text."
+      operationId: updateProfile
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ProfileRequest"
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AuthResponse"
+          description: Changed
+        "400":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+          description: "An invalid body, or Firebase refusing, with its message"
+        "401":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+          description: Not signed in
+        "403":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+          description: "The CSRF token is missing or wrong: send the value of the\
+            \ XSRF-TOKEN cookie in the X-XSRF-TOKEN header (\"Forbidden.\")."
+        "500":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+          description: "An unexpected failure: \"Something went wrong. Please try\
+            \ again.\""
+        "503":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+          description: "An external service, such as Firestore, couldn't be reached:\
+            \ \"Couldn't reach an external service. Please try again in a moment.\""
+      summary: Change the name and details in the settings
+      tags:
+      - Account
   /api/newsletter:
     post:
       description: "Public: no session needed. The address is trimmed and lower-cased;\
@@ -290,15 +592,60 @@ components:
           type: string
         website:
           type: string
+    EmailRequest:
+      type: object
+      properties:
+        email:
+          type: string
+          example: jane@example.com
+      required:
+      - email
     Error:
       type: object
       description: The body of every error response.
       properties:
+        code:
+          type: string
+          description: "Only for failures the web app handles in code, such as REAUTH_REQUIRED."
         error:
           type: string
           description: A message safe to show to the user.
       required:
       - error
+    OkResponse:
+      type: object
+      properties:
+        ok:
+          type: boolean
+    PasswordRequest:
+      type: object
+      properties:
+        password:
+          type: string
+    ProfileRequest:
+      type: object
+      properties:
+        address:
+          type: string
+        brn:
+          type: string
+        businessEmail:
+          type: string
+        companyName:
+          type: string
+        displayName:
+          type: string
+          example: Jane Doe
+        fullName:
+          type: string
+        phone:
+          type: string
+        tel:
+          type: string
+        website:
+          type: string
+      required:
+      - displayName
     SignInRequest:
       type: object
       properties:

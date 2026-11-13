@@ -68,12 +68,19 @@ class SessionAuthenticator implements RequestAuthenticator {
                 session = refreshSession.refresh(session);
                 store.update(request, session);
             } catch (UnauthenticatedException e) {
-                log.info("Firebase refused to refresh a session, which ends now", e);
+                // Expected and handled: the refresh token was revoked, or the account disabled or deleted. One line
+                // with Firebase's reason is enough; a stack trace would only look like a failure.
+                log.info("Firebase refused to refresh a session, which ends now: {}", reason(e));
                 store.end(request, response);
                 return null;
             }
         }
         return signedIn(session);
+    }
+
+    /** Firebase's reason, carried by the cause, such as "Firebase Auth refused the request: USER_NOT_FOUND". */
+    private static @Nullable String reason(UnauthenticatedException e) {
+        return e.getCause() != null ? e.getCause().getMessage() : e.getMessage();
     }
 
     static Authentication signedIn(AuthSession session) {

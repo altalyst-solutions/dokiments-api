@@ -2,11 +2,13 @@ package com.dokiments.users.adapter.out.firestore;
 
 import com.dokiments.platform.firestore.FirestoreCallException;
 import com.dokiments.platform.firestore.FirestoreCalls;
+import com.dokiments.users.ProfileChanges;
 import com.dokiments.users.UserProfile;
 import com.dokiments.users.application.port.out.UserProfileStore;
 import com.google.api.gax.rpc.StatusCode;
 import com.google.cloud.firestore.DocumentReference;
 import com.google.cloud.firestore.Firestore;
+import com.google.cloud.firestore.SetOptions;
 import java.time.Instant;
 import java.util.Optional;
 import org.springframework.stereotype.Repository;
@@ -39,6 +41,13 @@ class FirestoreUserProfiles implements UserProfileStore {
                 throw e;
             }
         }
+    }
+
+    @Override
+    public void update(String uid, ProfileChanges changes, Instant updatedAt) {
+        // A merge of exactly these fields, as the web app writes them: the sign-in address, role, provider and
+        // creation time stay as they are.
+        FirestoreCalls.await(document(uid).set(UserDocument.forChanges(changes, updatedAt), SetOptions.merge()));
     }
 
     private DocumentReference document(String uid) {

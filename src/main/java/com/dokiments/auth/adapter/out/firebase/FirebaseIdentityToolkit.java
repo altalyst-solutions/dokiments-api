@@ -2,9 +2,8 @@ package com.dokiments.auth.adapter.out.firebase;
 
 import com.dokiments.auth.application.port.out.IdentityProvider;
 import com.dokiments.auth.domain.AuthTokens;
-import com.dokiments.shared.error.UnauthenticatedException;
 import com.fasterxml.jackson.annotation.JsonProperty;
-import java.io.Serial;
+import java.io.IOException;
 import java.nio.charset.StandardCharsets;
 import java.time.Clock;
 import java.time.Duration;
@@ -23,8 +22,8 @@ import tools.jackson.databind.json.JsonMapper;
  * password, which is why these are called directly.
  *
  * <p>Calls go through the application's HTTP client rules, so an unreachable or failing Firebase is reported as
- * unavailable on its own. A refusal ({@code 4xx}) becomes an {@link UnauthenticatedException} with the message the web
- * app shows for Firebase's error code.
+ * unavailable on its own. A refusal ({@code 4xx}) becomes a {@link Refused}, with Firebase's error code and the message
+ * the web app shows for it.
  */
 class FirebaseIdentityToolkit implements IdentityProvider {
 
@@ -83,6 +82,43 @@ class FirebaseIdentityToolkit implements IdentityProvider {
     }
 
     @Override
+    public void sendPasswordResetEmail(String email) {
+        post(
+                identityToolkit,
+                "/v1/accounts:sendOobCode",
+                Map.of("requestType", "PASSWORD_RESET", "email", email),
+                JsonNode.class);
+    }
+
+    @Override
+    public Updated changePassword(String idToken, String newPassword) {
+        return updated(post(
+                identityToolkit,
+                "/v1/accounts:update",
+                Map.of("idToken", idToken, "password", newPassword, "returnSecureToken", true),
+                UpdateResponse.class));
+    }
+
+    @Override
+    public Updated changeDisplayName(String idToken, String displayName) {
+        return updated(post(
+                identityToolkit,
+                "/v1/accounts:update",
+                Map.of("idToken", idToken, "displayName", displayName, "returnSecureToken", true),
+                UpdateResponse.class));
+    }
+
+    /** Firebase only sends new tokens when the change needs them, such as a new password. */
+    private Updated updated(UpdateResponse response) {
+        if (response.idToken() == null || response.refreshToken() == null || response.expiresIn() == null) {
+            return new Updated(null, null);
+        }
+        return new Updated(
+                tokens(response.idToken(), response.refreshToken(), response.expiresIn()),
+                emailVerified(response.idToken()));
+    }
+
+    @Override
     public void sendVerificationEmail(String idToken) {
         post(
                 identityToolkit,
@@ -121,22 +157,18 @@ class FirebaseIdentityToolkit implements IdentityProvider {
                 idToken, refreshToken, clock.instant().plus(Duration.ofSeconds(Long.parseLong(expiresInSeconds))));
     }
 
-    /**
-     * Firebase's own message code, such as {@code INVALID_LOGIN_CREDENTIALS}, turned into the user's message. The code
-     * is logged by the caller through the exception's cause; the user only sees the message.
-     */
-    static UnauthenticatedException refused(ClientHttpResponse refusal) {
+    /** Firebase's own error code, such as {@code INVALID_LOGIN_CREDENTIALS}, with the message for the user. */
+    static Refused refused(ClientHttpResponse refusal) {
         String code = null;
         try {
             code = JSON.readTree(refusal.getBody())
                     .path("error")
                     .path("message")
                     .asString(null);
-        } catch (RuntimeException | java.io.IOException e) {
+        } catch (RuntimeException | IOException e) {
             // An unreadable refusal still is one; the generic message applies.
         }
-        return new UnauthenticatedException(
-                FirebaseErrors.messageFor(code), new FirebaseRefusal(code == null ? "(no code)" : code));
+        return new Refused(code == null ? "(no code)" : code, FirebaseErrors.messageFor(code));
     }
 
     /**
@@ -159,17 +191,6 @@ class FirebaseIdentityToolkit implements IdentityProvider {
         }
     }
 
-    /** Firebase's error code, as the cause of the refusal, for the logs. */
-    static final class FirebaseRefusal extends RuntimeException {
-
-        @Serial
-        private static final long serialVersionUID = 1L;
-
-        FirebaseRefusal(String code) {
-            super("Firebase Auth refused the request: " + code);
-        }
-    }
-
     record AccountResponse(
             String localId,
             String email,
@@ -177,6 +198,12 @@ class FirebaseIdentityToolkit implements IdentityProvider {
             String idToken,
             String refreshToken,
             String expiresIn) {}
+
+    /** Identity Toolkit's answer to an account change. Tokens only come with changes that need new ones. */
+    record UpdateResponse(
+            @Nullable String idToken,
+            @Nullable String refreshToken,
+            @Nullable String expiresIn) {}
 
     /** Secure Token's answer, whose fields are in snake case, unlike Identity Toolkit's. */
     record RefreshResponse(

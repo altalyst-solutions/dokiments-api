@@ -54,6 +54,10 @@ class OpenApiConfiguration {
         Schema<Object> schema = new ObjectSchema();
         schema.setDescription("The body of every error response.");
         schema.addProperty("error", new StringSchema().description("A message safe to show to the user."));
+        schema.addProperty(
+                "code",
+                new StringSchema()
+                        .description("Only for failures the web app handles in code, such as REAUTH_REQUIRED."));
         schema.setRequired(List.of("error"));
         return schema;
     }

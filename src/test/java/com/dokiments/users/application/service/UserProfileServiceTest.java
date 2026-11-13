@@ -3,13 +3,16 @@ package com.dokiments.users.application.service;
 import static org.assertj.core.api.Assertions.assertThat;
 
 import com.dokiments.users.AuthProvider;
+import com.dokiments.users.ProfileChanges;
 import com.dokiments.users.UserProfile;
 import com.dokiments.users.UserRole;
 import com.dokiments.users.application.port.out.UserProfileStore;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;
+import java.util.ArrayList;
 import java.util.HashMap;
+import java.util.List;
 import java.util.Map;
 import java.util.Optional;
 import org.jspecify.annotations.NullMarked;
@@ -32,7 +35,13 @@ class UserProfileServiceTest {
         public void createIfAbsent(UserProfile profile, Instant createdAt) {
             stored.putIfAbsent(profile.uid(), profile);
         }
+
+        @Override
+        public void update(String uid, ProfileChanges changes, Instant updatedAt) {
+            updates.add(uid + " " + changes.displayName() + " " + updatedAt);
+        }
     };
+    private final List<String> updates = new ArrayList<>();
     private final UserProfileService service = new UserProfileService(store, Clock.fixed(NOW, ZoneOffset.UTC));
 
     @Test
@@ -50,6 +59,20 @@ class UserProfileServiceTest {
         assertThat(service.findOrCreate("uid-1", "jane.doe@example.com", "  ", AuthProvider.GOOGLE)
                         .displayName())
                 .isEqualTo("jane.doe");
+    }
+
+    @Test
+    void aChangeInSettingsIsStoredAndReturnedWithEmptyFieldsAsEmpty() {
+        var current = service.findOrCreate("uid-1", "jane@example.com", "Jane", AuthProvider.PASSWORD);
+
+        UserProfile changed =
+                service.updateProfile(current, new ProfileChanges("Jane Doe", "", "", "", "Acme", "", "", "", ""));
+
+        assertThat(updates).containsExactly("uid-1 Jane Doe " + NOW);
+        assertThat(changed.displayName()).isEqualTo("Jane Doe");
+        assertThat(changed.details().companyName()).isEqualTo("Acme");
+        assertThat(changed.details().address()).isEmpty();
+        assertThat(changed.role()).isEqualTo(current.role());
     }
 
     @Test

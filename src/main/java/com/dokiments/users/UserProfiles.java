@@ -15,4 +15,12 @@ public interface UserProfiles {
      * @throws com.dokiments.shared.error.UpstreamUnavailableException if the profile couldn't be read or stored
      */
     UserProfile findOrCreate(String uid, String email, @Nullable String displayName, AuthProvider provider);
+
+    /**
+     * Stores what someone changed in their settings, and returns the profile as it is now. Three things never change
+     * this way: the sign-in address, the role and how the account was created.
+     *
+     * @throws com.dokiments.shared.error.UpstreamUnavailableException if the profile couldn't be stored
+     */
+    UserProfile updateProfile(UserProfile current, ProfileChanges changes);
 }
