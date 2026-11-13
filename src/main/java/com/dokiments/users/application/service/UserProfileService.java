@@ -1,6 +1,7 @@
 package com.dokiments.users.application.service;
 
 import com.dokiments.users.AuthProvider;
+import com.dokiments.users.ProfileChanges;
 import com.dokiments.users.UserProfile;
 import com.dokiments.users.UserProfiles;
 import com.dokiments.users.UserRole;
@@ -30,6 +31,28 @@ class UserProfileService implements UserProfiles {
         // Read back rather than returning what was written: if two sign-ins of a new account raced, the one that lost
         // returns the profile the other created.
         return store.find(uid).orElseThrow(() -> new IllegalStateException("The new profile wasn't stored"));
+    }
+
+    @Override
+    public UserProfile updateProfile(UserProfile current, ProfileChanges changes) {
+        store.update(current.uid(), changes, clock.instant());
+        // As the web app answers: the changed fields as sent, empty ones as empty text.
+        return new UserProfile(
+                current.uid(),
+                current.email(),
+                changes.displayName(),
+                current.role(),
+                current.provider(),
+                current.linkedGoogle(),
+                new UserProfile.Details(
+                        changes.address(),
+                        changes.brn(),
+                        changes.businessEmail(),
+                        changes.companyName(),
+                        changes.fullName(),
+                        changes.phone(),
+                        changes.tel(),
+                        changes.website()));
     }
 
     static UserProfile newProfile(String uid, String email, @Nullable String displayName, AuthProvider provider) {

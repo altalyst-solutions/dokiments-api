@@ -2,6 +2,7 @@ package com.dokiments.users.adapter.out.firestore;
 
 import com.dokiments.platform.firestore.FirestoreCalls;
 import com.dokiments.users.AuthProvider;
+import com.dokiments.users.ProfileChanges;
 import com.dokiments.users.UserProfile;
 import com.dokiments.users.UserRole;
 import com.google.cloud.firestore.DocumentSnapshot;
@@ -52,6 +53,21 @@ final class UserDocument {
                 "email", profile.email(),
                 "provider", profile.provider().value(),
                 "role", profile.role().value());
+    }
+
+    /** The fields a change in settings writes. Empty ones are stored as empty text, as the web app stores them. */
+    static Map<String, Object> forChanges(ProfileChanges changes, Instant updatedAt) {
+        return Map.of(
+                "displayName", changes.displayName(),
+                "address", changes.address(),
+                "brn", changes.brn(),
+                "businessEmail", changes.businessEmail(),
+                "companyName", changes.companyName(),
+                "fullName", changes.fullName(),
+                "phone", changes.phone(),
+                "tel", changes.tel(),
+                "website", changes.website(),
+                "updatedAt", FirestoreCalls.toTimestamp(updatedAt));
     }
 
     private static @Nullable String text(DocumentSnapshot snapshot, String field) {
