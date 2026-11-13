@@ -12,8 +12,20 @@ start with [Getting started](getting-started.md).
 This starts the application with the `dev` profile. Through Spring Boot's Docker Compose support it also starts Redis
 and the Firebase emulators (Auth and Firestore) from `compose.yaml`, connects to them, and stops them again when the
 application stops. The first run builds the emulators' image from `docker/firebase-emulators`, which takes a minute or
-two; later runs reuse it.
-The `dev` profile shows the Spring banner, readable coloured logs and full health details.
+two; later runs reuse it. The `dev` profile shows the Spring banner, readable coloured logs and full health details.
+
+`bootRun` never rebuilds that image, so a change to `docker/firebase-emulators` (yours, or one merged from `main`)
+only takes effect once the image is rebuilt. `./gradlew build` and `./gradlew integrationTest` rebuild it on their
+way, because the tests use the same image; otherwise, rebuild it yourself:
+
+```bash
+docker compose build firebase
+```
+
+On a network with a TLS-inspecting proxy, this needs `EXTRA_CA_PEM` (see
+[Behind a TLS-inspecting proxy](getting-started.md#behind-a-tls-inspecting-proxy)). The running emulators keep the old
+image until they are started again: `bootRun` does that when they are stopped, and `docker compose up -d` does it when
+they are running. Either way the data is saved first and loaded again.
 
 ```mermaid
 flowchart LR
@@ -162,7 +174,7 @@ this at start-up: in the `dev` profile it only runs against the emulator, with t
 Data **is kept between restarts**, including stopping `bootRun`, `docker compose down` and restarting your computer.
 The emulators only hold data in memory, so `docker/firebase-emulators/start.sh` saves the Firestore data and the Auth
 accounts to a Docker volume: once a minute while they run (`FIRESTORE_SAVE_INTERVAL_SECONDS`), and once more when
-they stop. On start, it loads the latest save.
+they stop. On start, it loads the latest save, and keeps a copy of it as a backup.
 
 How the containers start and stop depends on how you run things:
 
@@ -180,11 +192,35 @@ stop the containers. They keep running with your data, and the next `bootRun` re
 | Keep your data | Nothing: it is kept automatically |
 | Start again with an empty database | `docker compose down --volumes` |
 | See the saves | `docker compose exec firebase ls /data/exports` (the newest `FIRESTORE_KEEP_SAVES` are kept) |
+| Undo a mistake, such as cleared accounts | Restore a backup: see [Undoing a mistake](#undoing-a-mistake) |
 | See what the emulators did | `docker compose logs firebase` |
 
 If the emulator is stopped abruptly (Docker force-quit, a crash, power loss), changes since the last save can be lost:
 at most a minute with the default interval. Integration tests never use this data: they run against fresh emulators
 of their own.
+
+### Undoing a mistake
+
+The saves only cover the last few minutes: by default a new one is written every minute and only the newest three are
+kept. A mistake, such as **Clear all data** on the Emulator UI's Authentication page, reaches every save within minutes.
+That button clears only the accounts, and leaves their profiles in Firestore without an account.
+
+So each time the emulators start, the save they load is also kept as a backup. The newest five are kept by default
+(`EMULATOR_KEEP_BACKUPS`), so you can go back to how the data was at any of the last five starts. Each backup is named
+after when its data was saved, in UTC, such as `backup_20261114T091502123456789`.
+
+To go back to a backup, stop the emulators first, so they don't save over it:
+
+```bash
+docker compose stop firebase
+docker compose run --rm firebase backups
+docker compose run --rm firebase restore backup_20261114T091502123456789
+docker compose start firebase
+```
+
+`backups` lists them, newest first, and `restore` makes the chosen one the data the next start loads. The data it
+replaces is backed up first, so a restore can be undone the same way. If `./gradlew bootRun` started the emulators,
+stop it first; the next `bootRun` loads the restored data.
 
 ### Checking that data survives
 
