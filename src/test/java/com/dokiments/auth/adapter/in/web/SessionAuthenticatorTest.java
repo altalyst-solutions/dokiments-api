@@ -14,11 +14,15 @@ import java.time.Duration;
 import java.time.Instant;
 import java.time.ZoneOffset;
 import org.junit.jupiter.api.Test;
+import org.junit.jupiter.api.extension.ExtendWith;
+import org.springframework.boot.test.system.CapturedOutput;
+import org.springframework.boot.test.system.OutputCaptureExtension;
 import org.springframework.mock.web.MockHttpServletRequest;
 import org.springframework.mock.web.MockHttpServletResponse;
 import tools.jackson.databind.json.JsonMapper;
 
 /** What happens to a session whose refresh fails, which the Auth emulator can't simulate. */
+@ExtendWith(OutputCaptureExtension.class)
 class SessionAuthenticatorTest {
 
     private static final Instant NOW = Instant.parse("2026-11-12T09:00:00Z");
@@ -41,13 +45,18 @@ class SessionAuthenticatorTest {
     }
 
     @Test
-    void aRefusedRefreshEndsTheSession() {
+    void aRefusedRefreshEndsTheSessionWithOneLogLineGivingFirebasesReason(CapturedOutput output) {
         signedInWithATokenAboutToRunOut();
         RefreshSession refused = _ -> {
-            throw new UnauthenticatedException("Your session expired. Please sign in again.");
+            throw new UnauthenticatedException(
+                    "Something went wrong. Please try again.",
+                    new IllegalStateException("Firebase Auth refused the request: USER_NOT_FOUND"));
         };
 
         assertThat(authenticator(refused).authenticate(request, response)).isNull();
+        assertThat(output)
+                .contains("which ends now: Firebase Auth refused the request: USER_NOT_FOUND")
+                .doesNotContain("\tat ");
         assertThat(store.read(request)).isEmpty();
         assertThat(response.getHeaders("Set-Cookie"))
                 .anyMatch(cookie -> cookie.startsWith("dokiments-session-expiry=;"));
