@@ -28,6 +28,8 @@ How tests are written:
   `compose.yaml`.
 - Emails are tested by rendering their templates (`EmailTemplatesTest`) and by sending to a stand-in for Resend's API
   on the test machine (`ResendEmailSenderTest`). No test sends real email.
+- Google sign-in is tested with a stand-in for Google's token endpoint that hands out unsigned Google ID tokens,
+  which the Auth emulator accepts (`GoogleSignInIT`). No test reaches Google.
 - Every behaviour change comes with tests. A fix comes with a test that fails without it.
 
 ## What the build checks

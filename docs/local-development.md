@@ -114,6 +114,18 @@ the request's **Scripts**, **Pre-request** tab:
 pm.variables.set("xsrf", pm.cookies.get("XSRF-TOKEN"));
 ```
 
+Signing in with Google needs a real Google OAuth client, since the Auth emulator can't stand in for Google's own
+sign-in page. Without one, `/api/auth/google/start` sends you to `/sign-in?error=google_failed`. To try it, use a
+client for local development whose redirect addresses include `http://localhost:3000/api/auth/google/callback`, run
+the web app, and start the application with the client's settings:
+
+```bash
+GOOGLE_CLIENT_ID=... GOOGLE_CLIENT_SECRET=... ./gradlew bootRun
+```
+
+The account is still created in the Auth emulator, not in a real Firebase project. The integration tests don't need
+to reach Google: they replace its token endpoint with a stand-in (`GoogleSignInIT`).
+
 Endpoints that aren't built yet answer `401`. To see what a request stored, read the emulator directly, as in
 [Looking at the data](#looking-at-the-data).
 

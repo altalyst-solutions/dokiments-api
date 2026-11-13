@@ -161,6 +161,9 @@ Rules, enforced by `HexagonalArchitectureTest` (ArchUnit) and `ModularityTest` (
   Keep the messages' wording: the web app shows them.
 - Signed-in routes are opened with `.authenticated()` in `SecurityConfig`, and document their `401` with
   `@ApiResponse`. A change that gets new Firebase tokens stores the session again with `SessionStore.update`.
+- Google sign-in redirects to `/sign-in?error=google_failed` on any failure, never answering an error body: the browser
+  is on a page load, not a call from JavaScript. Where to land afterwards is only a path on this site
+  (`auth.domain.ReturnPath`).
 - Locally and in tests, Firebase Auth is the emulator with the `demo-dokiments` project, like Firestore.
 
 ## Errors
