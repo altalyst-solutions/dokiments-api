@@ -37,11 +37,17 @@ class UserProfileServiceTest {
         }
 
         @Override
+        public void markGoogleLinked(String uid) {
+            linked.add(uid);
+        }
+
+        @Override
         public void update(String uid, ProfileChanges changes, Instant updatedAt) {
             updates.add(uid + " " + changes.displayName() + " " + updatedAt);
         }
     };
     private final List<String> updates = new ArrayList<>();
+    private final List<String> linked = new ArrayList<>();
     private final UserProfileService service = new UserProfileService(store, Clock.fixed(NOW, ZoneOffset.UTC));
 
     @Test
@@ -76,6 +82,27 @@ class UserProfileServiceTest {
     }
 
     @Test
+    void theFirstGoogleSignInToAPasswordAccountMarksItLinked() {
+        service.findOrCreate("uid-1", "jane@example.com", "Jane", AuthProvider.PASSWORD);
+
+        UserProfile profile = service.findOrCreate("uid-1", "jane@example.com", "Jane", AuthProvider.GOOGLE);
+
+        assertThat(profile.linkedGoogle()).isTrue();
+        assertThat(profile.provider()).isEqualTo(AuthProvider.PASSWORD);
+        assertThat(linked).containsExactly("uid-1");
+    }
+
+    @Test
+    void aGoogleAccountIsNeverMarkedLinked() {
+        service.findOrCreate("uid-1", "g@example.com", "Gee", AuthProvider.GOOGLE);
+
+        assertThat(service.findOrCreate("uid-1", "g@example.com", "Gee", AuthProvider.GOOGLE)
+                        .linkedGoogle())
+                .isFalse();
+        assertThat(linked).isEmpty();
+    }
+
+    @Test
     void anExistingProfileIsReturnedAsStored() {
         var gold = new UserProfile(
                 "uid-1",
@@ -87,7 +114,7 @@ class UserProfileServiceTest {
                 UserProfile.Details.NONE);
         stored.put("uid-1", gold);
 
-        assertThat(service.findOrCreate("uid-1", "jane@example.com", "Someone else", AuthProvider.GOOGLE))
+        assertThat(service.findOrCreate("uid-1", "jane@example.com", "Someone else", AuthProvider.PASSWORD))
                 .isEqualTo(gold);
     }
 }

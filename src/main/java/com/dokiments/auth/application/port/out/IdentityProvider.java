@@ -18,6 +18,12 @@ public interface IdentityProvider {
 
     SignedIn signIn(String email, String password);
 
+    /**
+     * Signs in with a Google ID token, creating the Firebase account on its first sign-in. An existing password account
+     * with the same address is signed in to, and Firebase links Google to it.
+     */
+    SignedIn signInWithGoogle(String googleIdToken);
+
     /** New tokens for a refresh token. */
     Refreshed refresh(String refreshToken);
 

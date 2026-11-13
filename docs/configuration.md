@@ -14,6 +14,8 @@ All configuration comes from environment variables, so the same image runs on an
 | `FIREBASE_PROJECT_ID` | Yes, outside `dev` | Firebase project holding the Firestore database. In `dev` and tests it is `demo-dokiments` on the emulator. |
 | `FIRESTORE_EMULATOR_HOST` | No | `host:port` of a Firestore emulator to use instead of the real Firestore. Only allowed with a `demo-` project ID. |
 | `GOOGLE_APPLICATION_CREDENTIALS` | Outside Google Cloud | Path to service account credentials for Firestore. On Cloud Run, the attached service account is used instead, so no file is needed. |
+| `GOOGLE_CLIENT_ID` | No | OAuth client ID for signing in with Google, from the Google Cloud console. Without it (or without the secret), Google sign-in sends people back to `/sign-in?error=google_failed`. See [Google sign-in](#google-sign-in). |
+| `GOOGLE_CLIENT_SECRET` | No | That OAuth client's secret. Locally, set it in your shell for one run, never in `.env`. |
 | `RESEND_API_KEY` | No | Resend API key for sending email: a send-only key limited to the sending domain. Without it, nothing is sent. Locally, set it in your shell for one run, never in `.env`. |
 | `EMAIL_FROM` | No | Sender, as `Name <address>` on the domain verified in Resend. Defaults to `Dokiments <notifications@mail.dokiments.com>`. |
 | `EMAIL_REPLY_TO` | No | Where replies go, such as a support inbox. The sending domain can't receive mail. |
@@ -129,6 +131,27 @@ refreshing the Firebase ID token (about hourly, just before it runs out) never e
 or whose refresh Firebase refuses, is signed out, and the next request answers `401`. When Firebase can't be reached
 during a refresh, the request answers `503` and the session is kept.
 
+### Google sign-in
+
+Signing in with Google takes two requests from the browser, both plain page loads rather than calls from JavaScript:
+
+1. `GET /api/auth/google/start?next=/some/page` redirects to Google. It sets the HttpOnly `dokiments-oauth-state`
+   cookie (`Path=/api/auth/google`, ten minutes) holding a random value that Google returns with the person. Where to
+   land afterwards is kept in Redis under that value, also for ten minutes, and can be used once.
+2. Google sends the browser to `GET /api/auth/google/callback`. When the returned value matches the cookie, the
+   application exchanges Google's code for a Google ID token, signs in to Firebase with it and starts a session, as
+   signing in does. It then redirects to the page asked for: only a path on this site, otherwise `/dashboard`.
+
+Anything that goes wrong (cancelled at Google, an expired or reused sign-in, a refused code, Firebase unreachable)
+redirects to `/sign-in?error=google_failed`, which the web app explains. The first Google sign-in creates the account;
+one with the address of an existing password account signs in to that account and marks it as linked to Google.
+Firebase then trusts Google for that address, so an unverified password on it stops working.
+
+Google only sends people back to addresses registered for the OAuth client. Register
+`<SITE_URL>/api/auth/google/callback` for each environment, for example
+`https://dokiments.com/api/auth/google/callback`, and `http://localhost:3000/api/auth/google/callback` for local use
+through the web app.
+
 ### CSRF tokens
 
 Every request that changes something (`POST`, `PUT`, `PATCH`, `DELETE`), signing in and up included, must carry a CSRF
@@ -166,6 +189,7 @@ set as a real environment variable, such as `PORT=8090 ./gradlew bootRun`, still
 | `REDIS_URL` | not set | Use a different Redis instead of the one Docker Compose starts |
 | `SITE_URL` | `http://localhost:3000` | The web app, for links in emails |
 | `EMAIL_ALLOW_LIST` | not set | The only addresses that receive email locally (see [Email](#email)) |
+| `GOOGLE_CLIENT_ID` | not set | The OAuth client for Google sign-in locally; its secret goes in your shell (see [Google sign-in](#google-sign-in)) |
 | `JAEGER_UI_PORT` | `16686` | Host port of the Jaeger trace viewer |
 | `OTLP_PORT` | `4318` | Host port Jaeger receives traces on |
 
@@ -183,6 +207,7 @@ When adding a setting, add it to `.env.example` and to the table above.
 | `/actuator/info` | Public | Version, Git commit and Java version |
 | `POST /api/newsletter` | Public | Newsletter sign-up from the website |
 | `POST /api/auth/sign-up`, `POST /api/auth/sign-in`, `POST /api/auth/sign-out` | Public, CSRF token | Signing up, in and out (see [Sessions](#sessions)) |
+| `GET /api/auth/google/start`, `GET /api/auth/google/callback` | Public | Signing in with Google (see [Google sign-in](#google-sign-in)) |
 | `GET /api/auth/me` | Public | The signed-in user, or `401` with the body `null` |
 | `POST /api/auth/forgot-password` | Public, CSRF token | Sends a password reset link |
 | `POST /api/auth/update-password`, `reauthenticate`, `update-profile`, `send-verification`, `refresh-verification` (all under `/api/auth/`) | Signed in, CSRF token | Changes to one's own account |

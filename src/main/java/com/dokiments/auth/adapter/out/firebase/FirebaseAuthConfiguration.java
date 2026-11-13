@@ -1,5 +1,6 @@
 package com.dokiments.auth.adapter.out.firebase;
 
+import com.dokiments.auth.adapter.out.google.GoogleOAuthProperties;
 import com.dokiments.platform.email.EmailProperties;
 import com.dokiments.platform.firestore.FirestoreProperties;
 import java.time.Clock;
@@ -40,6 +41,7 @@ class FirebaseAuthConfiguration {
                 properties.usesEmulator() ? "on the emulator at " + properties.emulatorHost() : "in Google Cloud");
         // Where Firebase's verification page sends the user once the address is confirmed.
         String continueUrl = email.siteUrl().resolve("/dashboard").toString();
-        return new FirebaseIdentityToolkit(properties, restClientBuilder, clock, continueUrl);
+        return new FirebaseIdentityToolkit(
+                properties, restClientBuilder, clock, continueUrl, GoogleOAuthProperties.callbackUrl(email.siteUrl()));
     }
 }

@@ -277,6 +277,7 @@ class AuthServiceTest {
         final List<String> verificationEmails = new ArrayList<>();
         final List<String> signIns = new ArrayList<>();
         final List<String> displayNames = new ArrayList<>();
+        final List<String> googleTokens = new ArrayList<>();
         final AtomicInteger refreshCalls = new AtomicInteger();
         final CountDownLatch refreshStarted = new CountDownLatch(1);
 
@@ -299,6 +300,12 @@ class AuthServiceTest {
             }
             signIns.add(email);
             return new SignedIn("uid-jane", email, "Jane", true, tokens("signed-in"));
+        }
+
+        @Override
+        public SignedIn signInWithGoogle(String googleIdToken) {
+            googleTokens.add(googleIdToken);
+            return new SignedIn("uid-google", "g@example.com", "Gee", true, tokens("google"));
         }
 
         @Override
