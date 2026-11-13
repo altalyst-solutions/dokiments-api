@@ -155,18 +155,26 @@ Rules, enforced by `HexagonalArchitectureTest` (ArchUnit) and `ModularityTest` (
 - Firebase tokens never appear in responses or logs: the `toString` of everything holding them leaves them out.
 - Every request that changes something needs the CSRF token (`X-XSRF-TOKEN` from the `XSRF-TOKEN` cookie). Only an
   endpoint that uses no session may be exempted, in `platform.security.CsrfExemptions`.
-- Firebase Auth's refusals become `UnauthenticatedException` with the web app's message (see
-  `auth.adapter.out.firebase.FirebaseErrors`). Keep that wording: the web app shows it.
+- Firebase Auth's refusals arrive as `IdentityProvider.Refused`, with Firebase's code and the web app's message for it
+  (see `auth.adapter.out.firebase.FirebaseErrors`). The use case decides what a refusal means: `401` when signing in
+  or up, `400` for a change to the account, `403` with `REAUTH_REQUIRED` or `429` for the codes that call for them.
+  Keep the messages' wording: the web app shows them.
+- Signed-in routes are opened with `.authenticated()` in `SecurityConfig`, and document their `401` with
+  `@ApiResponse`. A change that gets new Firebase tokens stores the session again with `SessionStore.update`.
 - Locally and in tests, Firebase Auth is the emulator with the `demo-dokiments` project, like Firestore.
 
 ## Errors
 
 - For an expected failure, throw one of the exceptions in `com.dokiments.shared.error` (`InvalidRequestException`,
   `UnauthenticatedException`, `ForbiddenException`, `NotFoundException`, `ConflictException`,
-  `UpstreamUnavailableException`). `platform.web.ApiExceptionHandler` turns them into the status code and the
-  `{ "error": "..." }` body. Never build error responses in controllers.
+  `TooManyRequestsException`, `UpstreamUnavailableException`). `platform.web.ApiExceptionHandler` turns them into the
+  status code and the `{ "error": "..." }` body. Never build error responses in controllers.
 - The exception's message is sent to the client as is, so it must be written for users and never contain internal
   details. Put diagnostic information in the `cause`, which is logged only.
+- Text fields in request bodies accept only text (`platform.web.StrictJsonConfiguration`), as the web app's checks
+  do: `{"phone": 123}` is an invalid body.
+- An error carries a `code` (`DokimentsException.publicCode`) only when the web app acts on it in code, such as
+  `REAUTH_REQUIRED`. Never add one just to describe the error.
 - For a more specific failure in a module, extend the matching type (for example a `DocumentLockedException` extending
   `ConflictException`). Don't add new types to the sealed `DokimentsException` hierarchy without also mapping them in
   `ApiExceptionHandler`; the compiler enforces this.

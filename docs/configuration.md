@@ -184,6 +184,8 @@ When adding a setting, add it to `.env.example` and to the table above.
 | `POST /api/newsletter` | Public | Newsletter sign-up from the website |
 | `POST /api/auth/sign-up`, `POST /api/auth/sign-in`, `POST /api/auth/sign-out` | Public, CSRF token | Signing up, in and out (see [Sessions](#sessions)) |
 | `GET /api/auth/me` | Public | The signed-in user, or `401` with the body `null` |
+| `POST /api/auth/forgot-password` | Public, CSRF token | Sends a password reset link |
+| `POST /api/auth/update-password`, `reauthenticate`, `update-profile`, `send-verification`, `refresh-verification` (all under `/api/auth/`) | Signed in, CSRF token | Changes to one's own account |
 | `/swagger-ui.html`, `/v3/api-docs` | `dev` only | Swagger UI and the API description. Elsewhere they don't exist and answer `401`. |
 | Everything else | Denied (`401`) | Opened explicitly as features are added |
 
@@ -201,7 +203,12 @@ wording the web app already expects:
 | `403` | Signed in, but not allowed to do this | Specific reason, or `Forbidden.` |
 | `404` | Doesn't exist, or belongs to someone else | Specific, such as `Document not found.`, or `Not found.` |
 | `409` | Clashes with the current state | Specific, such as `This document is not shared with anyone.` |
+| `429` | Too many attempts in a short time, for example verification emails | Specific, such as `Too many attempts. Please try again later.` |
 | `503` | An external service couldn't be reached | `Couldn't reach an external service. Please try again in a moment.` |
 | `500` | Anything unexpected | `Something went wrong. Please try again.` |
 
 What exactly was wrong (which field failed validation, the underlying exception) is logged, never returned.
+
+A few errors the web app handles in code rather than by showing the message also carry a `code`. So far there is one:
+`403 {"code":"REAUTH_REQUIRED","error":"..."}` when a password change needs the current password first
+(`/api/auth/reauthenticate`).
