@@ -10,6 +10,7 @@ import com.google.cloud.firestore.DocumentReference;
 import com.google.cloud.firestore.Firestore;
 import com.google.cloud.firestore.SetOptions;
 import java.time.Instant;
+import java.util.Map;
 import java.util.Optional;
 import org.springframework.stereotype.Repository;
 
@@ -41,6 +42,11 @@ class FirestoreUserProfiles implements UserProfileStore {
                 throw e;
             }
         }
+    }
+
+    @Override
+    public void markGoogleLinked(String uid) {
+        FirestoreCalls.await(document(uid).set(Map.of("linkedGoogle", true), SetOptions.merge()));
     }
 
     @Override

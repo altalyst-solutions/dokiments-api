@@ -25,7 +25,7 @@ class UserProfileService implements UserProfiles {
     public UserProfile findOrCreate(String uid, String email, @Nullable String displayName, AuthProvider provider) {
         var existing = store.find(uid);
         if (existing.isPresent()) {
-            return existing.get();
+            return linkedIfFirstGoogleSignIn(existing.get(), provider);
         }
         store.createIfAbsent(newProfile(uid, email, displayName, provider), clock.instant());
         // Read back rather than returning what was written: if two sign-ins of a new account raced, the one that lost
@@ -53,6 +53,28 @@ class UserProfileService implements UserProfiles {
                         changes.phone(),
                         changes.tel(),
                         changes.website()));
+    }
+
+    /**
+     * Firebase signs a Google sign-in with the address of a password account in to that same account. The first time,
+     * the profile notes it, so the settings can say Google is connected too. Purely informational: it never decides
+     * what someone may do.
+     */
+    private UserProfile linkedIfFirstGoogleSignIn(UserProfile profile, AuthProvider signedInWith) {
+        if (signedInWith != AuthProvider.GOOGLE
+                || profile.provider() != AuthProvider.PASSWORD
+                || profile.linkedGoogle()) {
+            return profile;
+        }
+        store.markGoogleLinked(profile.uid());
+        return new UserProfile(
+                profile.uid(),
+                profile.email(),
+                profile.displayName(),
+                profile.role(),
+                profile.provider(),
+                true,
+                profile.details());
     }
 
     static UserProfile newProfile(String uid, String email, @Nullable String displayName, AuthProvider provider) {

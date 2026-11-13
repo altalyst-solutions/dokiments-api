@@ -13,6 +13,9 @@ public interface UserProfileStore {
     /** Stores a new profile, unless one already exists for its ID, which then stays as it is. */
     void createIfAbsent(UserProfile profile, Instant createdAt);
 
+    /** Marks an account created with a password as also signing in with Google. */
+    void markGoogleLinked(String uid);
+
     /** Stores the changed fields, and only those, with the time of the change. */
     void update(String uid, ProfileChanges changes, Instant updatedAt);
 }

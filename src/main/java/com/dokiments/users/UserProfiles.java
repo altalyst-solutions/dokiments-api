@@ -10,7 +10,8 @@ public interface UserProfiles {
      *
      * <p>A new profile always gets the {@link UserRole#FREE} role, and {@code displayName}, or the part of the address
      * before the {@code @} when it is blank. An existing profile is returned as stored: these arguments only seed a new
-     * one.
+     * one. The one exception: the first Google sign-in to an account created with a password marks it as linked to
+     * Google ({@code linkedGoogle}); its {@code provider} stays {@code password}.
      *
      * @throws com.dokiments.shared.error.UpstreamUnavailableException if the profile couldn't be read or stored
      */
