@@ -10,8 +10,18 @@
 #   restart loses at most that much;
 # - once more when the container is stopped.
 #
-# Only the most recent KEEP_SAVES saves are kept. /data is a Docker volume (see compose.yaml),
-# so the data survives `docker compose down` and is removed with `docker compose down --volumes`.
+# Only the most recent KEEP_SAVES saves are kept, so they cover just the last few minutes: a mistake,
+# such as clearing the accounts in the Emulator UI, reaches every save within minutes. So the save
+# loaded at each start is also kept as a backup, for the last KEEP_BACKUPS starts. A backup can be
+# restored with the commands below.
+#
+# /data is a Docker volume (see compose.yaml), so the data survives `docker compose down` and is
+# removed with `docker compose down --volumes`.
+#
+# Commands, with the emulators stopped (`docker compose stop firebase`):
+#
+#   docker compose run --rm firebase backups          lists the backups
+#   docker compose run --rm firebase restore <name>   loads that backup at the next start
 #
 # Each emulator listens on the same port inside the container as on the host, because the
 # Emulator UI runs in the browser and connects to the emulators at the ports it is told.
@@ -20,8 +30,10 @@ set -euo pipefail
 
 readonly PROJECT_ID="demo-dokiments"
 readonly EXPORTS_DIR=/data/exports
+readonly BACKUPS_DIR=/data/backups
 readonly SAVE_INTERVAL_SECONDS="${SAVE_INTERVAL_SECONDS:-60}"
 readonly KEEP_SAVES="${KEEP_SAVES:-3}"
+readonly KEEP_BACKUPS="${KEEP_BACKUPS:-5}"
 readonly FIRESTORE_PORT="${FIRESTORE_PORT:-8085}"
 readonly AUTH_PORT="${AUTH_PORT:-9099}"
 readonly UI_PORT="${UI_PORT:-4000}"
@@ -43,12 +55,82 @@ log() {
 
 # These come from .env through compose.yaml, so check them before using them. A KEEP_SAVES of 0
 # in particular would make the clean-up below delete every save.
-for setting in SAVE_INTERVAL_SECONDS KEEP_SAVES FIRESTORE_PORT AUTH_PORT UI_PORT WEBSOCKET_PORT LOGGING_PORT; do
+for setting in SAVE_INTERVAL_SECONDS KEEP_SAVES KEEP_BACKUPS FIRESTORE_PORT AUTH_PORT UI_PORT WEBSOCKET_PORT LOGGING_PORT; do
   if [[ ! "${!setting}" =~ ^[1-9][0-9]*$ ]]; then
     log "${setting} must be a whole number of at least 1, but is '${!setting}'. Check .env."
     exit 1
   fi
 done
+
+# Each save is a folder named save_<timestamp>, so the newest sorts last. A backup is a copy of
+# one, named backup_<the same timestamp>, so its name says when its data was saved.
+latest_save() {
+  find "$EXPORTS_DIR" -mindepth 1 -maxdepth 1 -type d -name 'save_*' | sort | tail -n 1
+}
+
+# Keeps a copy of a save as a backup, unless it is kept already, and removes all but the newest
+# KEEP_BACKUPS backups.
+back_up() {
+  local backup
+  backup="${BACKUPS_DIR}/backup_$(basename "$1" | sed 's/^save_//')"
+  if [[ ! -d "$backup" ]]; then
+    cp -R "$1" "${backup}.partial" && mv "${backup}.partial" "$backup"
+    log "Backed up the data as $(basename "$backup")"
+  fi
+  find "$BACKUPS_DIR" -mindepth 1 -maxdepth 1 -type d -name 'backup_*' | sort | head -n "-${KEEP_BACKUPS}" |
+    xargs -r rm -rf
+}
+
+list_backups() {
+  local backups
+  backups="$(find "$BACKUPS_DIR" -mindepth 1 -maxdepth 1 -type d -name 'backup_*' | sort -r)"
+  if [[ -z "$backups" ]]; then
+    log "No backups yet. One is kept each time the emulators start with saved data."
+    return
+  fi
+  log "Backups, newest first (the name is when the data was saved, in UTC):"
+  while read -r backup; do
+    echo "  $(basename "$backup")"
+  done <<<"$backups"
+}
+
+# Makes a backup the newest save, so the next start loads it. The data it replaces is backed up
+# first, so a restore can be undone the same way.
+restore() {
+  local backup="${BACKUPS_DIR}/${1:-}"
+  if [[ -z "${1:-}" || "$1" == */* || ! -d "$backup" ]]; then
+    log "No backup named '${1:-}'."
+    list_backups
+    exit 1
+  fi
+  local current
+  current="$(latest_save)"
+  if [[ -n "$current" ]]; then
+    back_up "$current"
+  fi
+  local target
+  target="${EXPORTS_DIR}/save_$(date -u +%Y%m%dT%H%M%S%N)"
+  cp -R "$backup" "${target}.partial" && mv "${target}.partial" "$target"
+  log "Restored $1. Start the emulators to load it: docker compose start firebase"
+}
+
+mkdir -p "$EXPORTS_DIR" "$BACKUPS_DIR"
+
+case "${1:-}" in
+  "") ;;
+  backups)
+    list_backups
+    exit 0
+    ;;
+  restore)
+    restore "${2:-}"
+    exit 0
+    ;;
+  *)
+    log "Unknown command '$1'. Use 'backups' or 'restore <name>'."
+    exit 1
+    ;;
+esac
 
 # The emulators' addresses. Written here rather than kept as a file so the ports can be changed
 # in .env. Listening on 0.0.0.0 makes them reachable from outside the container.
@@ -65,11 +147,6 @@ cat > firebase.json <<JSON
 }
 JSON
 
-# Each save is a folder named save_<timestamp>, so the newest sorts last.
-latest_save() {
-  find "$EXPORTS_DIR" -mindepth 1 -maxdepth 1 -type d -name 'save_*' | sort | tail -n 1
-}
-
 save() {
   local target
   target="${EXPORTS_DIR}/save_$(date -u +%Y%m%dT%H%M%S%N)"
@@ -83,12 +160,11 @@ save() {
   fi
 }
 
-mkdir -p "$EXPORTS_DIR"
-
 import_args=()
 previous="$(latest_save)"
 if [[ -n "$previous" ]]; then
   log "Loading saved data from ${previous}"
+  back_up "$previous"
   import_args=("--import=${previous}")
 else
   log "No saved data yet, starting with an empty database"

@@ -186,6 +186,7 @@ set as a real environment variable, such as `PORT=8090 ./gradlew bootRun`, still
 | `EMULATOR_LOGS_PORT` | `4500` | The log stream on the Emulator UI's Logs page |
 | `FIRESTORE_SAVE_INTERVAL_SECONDS` | `60` | How often the emulator saves local data |
 | `FIRESTORE_KEEP_SAVES` | `3` | How many emulator saves are kept (at least 1) |
+| `EMULATOR_KEEP_BACKUPS` | `5` | How many backups of the emulator data are kept, one from each start (at least 1; see [Undoing a mistake](local-development.md#undoing-a-mistake)) |
 | `REDIS_URL` | not set | Use a different Redis instead of the one Docker Compose starts |
 | `SITE_URL` | `http://localhost:3000` | The web app, for links in emails |
 | `EMAIL_ALLOW_LIST` | not set | The only addresses that receive email locally (see [Email](#email)) |
