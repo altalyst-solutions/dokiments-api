@@ -4,6 +4,7 @@ import com.dokiments.auth.application.port.out.IdentityProvider;
 import com.dokiments.auth.domain.AuthTokens;
 import com.fasterxml.jackson.annotation.JsonProperty;
 import java.io.IOException;
+import java.net.URLEncoder;
 import java.nio.charset.StandardCharsets;
 import java.time.Clock;
 import java.time.Duration;
@@ -33,9 +34,18 @@ class FirebaseIdentityToolkit implements IdentityProvider {
     private final RestClient secureToken;
     private final Clock clock;
     private final String continueUrl;
+    private final String googleCallbackUrl;
 
+    /**
+     * @param continueUrl where Firebase's verification page sends the user afterwards
+     * @param googleCallbackUrl the Google sign-in callback, which Firebase checks a Google ID token against
+     */
     FirebaseIdentityToolkit(
-            FirebaseAuthProperties properties, RestClient.Builder builder, Clock clock, String continueUrl) {
+            FirebaseAuthProperties properties,
+            RestClient.Builder builder,
+            Clock clock,
+            String continueUrl,
+            String googleCallbackUrl) {
         // The key goes in a header, never in the address: addresses end up in logs.
         this.identityToolkit = builder.clone()
                 .baseUrl(properties.identityToolkitUrl())
@@ -47,6 +57,7 @@ class FirebaseIdentityToolkit implements IdentityProvider {
                 .build();
         this.clock = clock;
         this.continueUrl = continueUrl;
+        this.googleCallbackUrl = googleCallbackUrl;
     }
 
     @Override
@@ -64,6 +75,18 @@ class FirebaseIdentityToolkit implements IdentityProvider {
                 identityToolkit,
                 "/v1/accounts:signInWithPassword",
                 Map.of("email", email, "password", password, "returnSecureToken", true),
+                AccountResponse.class));
+    }
+
+    @Override
+    public SignedIn signInWithGoogle(String googleIdToken) {
+        // Firebase takes the Google token as form data inside the JSON body.
+        String postBody =
+                "id_token=" + URLEncoder.encode(googleIdToken, StandardCharsets.UTF_8) + "&providerId=google.com";
+        return signedIn(post(
+                identityToolkit,
+                "/v1/accounts:signInWithIdp",
+                Map.of("postBody", postBody, "requestUri", googleCallbackUrl, "returnSecureToken", true),
                 AccountResponse.class));
     }
 

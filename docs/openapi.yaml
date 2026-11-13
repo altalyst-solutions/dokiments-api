@@ -55,6 +55,94 @@ paths:
       summary: Send a password reset link
       tags:
       - Account
+  /api/auth/google/callback:
+    get:
+      description: "Where Google sends the browser back. Starts the session (the dokiments-session\
+        \ and dokiments-session-expiry cookies, as for sign-in) and redirects to the\
+        \ page asked for at the start. The first Google sign-in creates the account;\
+        \ one with the address of a password account signs in to that account."
+      operationId: callback
+      parameters:
+      - in: query
+        name: code
+        required: false
+        schema:
+          type: string
+          default: ""
+      - in: query
+        name: state
+        required: false
+        schema:
+          type: string
+          default: ""
+      - in: query
+        name: error
+        required: false
+        schema:
+          type: string
+          default: ""
+      - in: cookie
+        name: dokiments-oauth-state
+        required: false
+        schema:
+          type: string
+          default: ""
+      responses:
+        "302":
+          description: "To the page asked for, or to /sign-in?error=google_failed\
+            \ when anything went wrong"
+        "500":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+          description: "An unexpected failure: \"Something went wrong. Please try\
+            \ again.\""
+        "503":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+          description: "An external service, such as Firestore, couldn't be reached:\
+            \ \"Couldn't reach an external service. Please try again in a moment.\""
+      summary: Finish signing in with Google
+      tags:
+      - Google sign-in
+  /api/auth/google/start:
+    get:
+      description: "Redirects to Google's sign-in page. next is where to land afterwards,\
+        \ a path on this site (the dashboard otherwise). The promo code is accepted\
+        \ but not redeemed yet."
+      operationId: start
+      parameters:
+      - description: "Where to land afterwards, for example /my-documents"
+        in: query
+        name: next
+        required: false
+        schema:
+          type: string
+          default: ""
+      responses:
+        "302":
+          description: "To Google, or to /sign-in?error=google_failed when Google\
+            \ sign-in isn't set up"
+        "500":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+          description: "An unexpected failure: \"Something went wrong. Please try\
+            \ again.\""
+        "503":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+          description: "An external service, such as Firestore, couldn't be reached:\
+            \ \"Couldn't reach an external service. Please try again in a moment.\""
+      summary: Start signing in with Google
+      tags:
+      - Google sign-in
   /api/auth/me:
     get:
       description: The web app calls this when it starts. The ID token is refreshed

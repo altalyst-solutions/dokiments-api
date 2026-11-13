@@ -33,11 +33,16 @@ class SessionAuthenticator implements RequestAuthenticator {
     private static final Logger log = LoggerFactory.getLogger(SessionAuthenticator.class);
 
     /**
-     * Requests that never refresh: signing in or up replaces the session anyway, and signing out must work even when
-     * Firebase can't be reached.
+     * Requests that never refresh: signing in or up (Google's included) replaces the session anyway, and signing out
+     * must work even when Firebase can't be reached. Google's routes answer with redirects, which a 503 must not
+     * replace.
      */
-    private static final Set<String> NO_REFRESH =
-            Set.of("/api/auth/sign-in", "/api/auth/sign-up", "/api/auth/sign-out");
+    private static final Set<String> NO_REFRESH = Set.of(
+            "/api/auth/sign-in",
+            "/api/auth/sign-up",
+            "/api/auth/sign-out",
+            "/api/auth/google/start",
+            "/api/auth/google/callback");
 
     private static final List<SimpleGrantedAuthority> SIGNED_IN = List.of(new SimpleGrantedAuthority("ROLE_USER"));
 

@@ -57,6 +57,11 @@ dokiments:
   auth:
     api-key: ${FIREBASE_API_KEY:}
     emulator-host: ${FIREBASE_AUTH_EMULATOR_HOST:}
+    # Google sign-in's OAuth client. Without both, Google sign-in is off and its start sends people back to the
+    # sign-in page. The client must allow SITE_URL/api/auth/google/callback as a redirect URI.
+    google:
+      client-id: ${GOOGLE_CLIENT_ID:}
+      client-secret: ${GOOGLE_CLIENT_SECRET:}
   # Which Firestore to use (see com.dokiments.platform.firestore.FirestoreProperties for the
   # safety rules). The project ID is required: deployed, it is the real Firebase project. The
   # empty default is deliberate: Spring Boot keeps a missing variable as the literal text

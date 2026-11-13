@@ -50,6 +50,9 @@ class SecurityConfig {
                         .permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/auth/me")
                         .permitAll()
+                        // Google sign-in: browser redirects, protected by their own state check.
+                        .requestMatchers(HttpMethod.GET, "/api/auth/google/start", "/api/auth/google/callback")
+                        .permitAll()
                         // A reset link can only be asked for without a session: whoever needs one can't sign in.
                         .requestMatchers(HttpMethod.POST, "/api/auth/forgot-password")
                         .permitAll()
