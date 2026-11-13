@@ -5,6 +5,7 @@ import com.dokiments.shared.error.DokimentsException;
 import com.dokiments.shared.error.ForbiddenException;
 import com.dokiments.shared.error.InvalidRequestException;
 import com.dokiments.shared.error.NotFoundException;
+import com.dokiments.shared.error.TooManyRequestsException;
 import com.dokiments.shared.error.UnauthenticatedException;
 import com.dokiments.shared.error.UpstreamUnavailableException;
 import org.slf4j.Logger;
@@ -58,6 +59,7 @@ class ApiExceptionHandler {
             case ForbiddenException _ -> HttpStatus.FORBIDDEN;
             case NotFoundException _ -> HttpStatus.NOT_FOUND;
             case ConflictException _ -> HttpStatus.CONFLICT;
+            case TooManyRequestsException _ -> HttpStatus.TOO_MANY_REQUESTS;
             case UpstreamUnavailableException _ -> HttpStatus.SERVICE_UNAVAILABLE;
         };
 
@@ -71,7 +73,7 @@ class ApiExceptionHandler {
                     status.value(),
                     exception.publicMessage());
         }
-        return respond(status, exception.publicMessage());
+        return ResponseEntity.status(status).body(new ErrorBody(exception.publicMessage(), exception.publicCode()));
     }
 
     /**

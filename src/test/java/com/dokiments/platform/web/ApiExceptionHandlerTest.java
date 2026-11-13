@@ -6,6 +6,7 @@ import com.dokiments.shared.error.ConflictException;
 import com.dokiments.shared.error.ForbiddenException;
 import com.dokiments.shared.error.InvalidRequestException;
 import com.dokiments.shared.error.NotFoundException;
+import com.dokiments.shared.error.TooManyRequestsException;
 import com.dokiments.shared.error.UnauthenticatedException;
 import com.dokiments.shared.error.UpstreamUnavailableException;
 import jakarta.validation.Valid;
@@ -40,7 +41,7 @@ import org.springframework.web.client.ResourceAccessException;
  */
 @WebMvcTest(controllers = ApiExceptionHandlerTest.ProbeController.class)
 // Spring Boot's test scanning skips classes nested in test classes, so the probe controller is imported explicitly.
-@Import(ApiExceptionHandlerTest.ProbeController.class)
+@Import({ApiExceptionHandlerTest.ProbeController.class, StrictJsonConfiguration.class})
 @AutoConfigureMockMvc(addFilters = false)
 class ApiExceptionHandlerTest {
 
@@ -56,12 +57,21 @@ class ApiExceptionHandlerTest {
         "conflict, 409, This document is not shared with anyone.",
         "upstream-unavailable, 503, Couldn't reach an external service. Please try again in a moment.",
         "upstream-io, 503, Couldn't reach an external service. Please try again in a moment.",
+        "too-many, 429, Too many attempts. Please try again later.",
     })
     void applicationExceptionsKeepTheirMessageAndGetTheirStatus(String path, int status, String message) {
         assertThat(mvc.get().uri("/probe/fail/{path}", path))
                 .hasStatus(status)
                 .bodyJson()
                 .isStrictlyEqualTo(body(message));
+    }
+
+    @Test
+    void aCodeTheWebAppActsOnIsSentNextToTheMessage() {
+        assertThat(mvc.get().uri("/probe/fail/with-code"))
+                .hasStatus(403)
+                .bodyJson()
+                .isStrictlyEqualTo("{\"code\":\"REAUTH_REQUIRED\",\"error\":\"Sign in again first.\"}");
     }
 
     @Test
@@ -107,6 +117,20 @@ class ApiExceptionHandlerTest {
                 .hasStatus(400)
                 .bodyJson()
                 .isStrictlyEqualTo(body("Invalid request body."));
+    }
+
+    @Test
+    void aNumberOrBooleanWhereTextIsExpectedIsAnInvalidBody() {
+        for (String email : new String[] {"5", "1.5", "true"}) {
+            assertThat(mvc.post()
+                            .uri("/probe/body")
+                            .contentType(MediaType.APPLICATION_JSON)
+                            .content("{\"email\": " + email + ", \"count\": 1}"))
+                    .as(email)
+                    .hasStatus(400)
+                    .bodyJson()
+                    .isStrictlyEqualTo(body("Invalid request body."));
+        }
     }
 
     @Test
@@ -212,6 +236,14 @@ class ApiExceptionHandlerTest {
                 case "not-found" -> new NotFoundException("Document not found.");
                 case "conflict" -> new ConflictException("This document is not shared with anyone.");
                 case "upstream-unavailable" -> new UpstreamUnavailableException(new ConnectException("refused"));
+                case "too-many" -> new TooManyRequestsException("Too many attempts. Please try again later.", null);
+                case "with-code" ->
+                    new ForbiddenException("Sign in again first.") {
+                        @Override
+                        public String publicCode() {
+                            return "REAUTH_REQUIRED";
+                        }
+                    };
                 case "upstream-io" ->
                     new ResourceAccessException("I/O error on GET request for \"https://x.test?key=k\"");
                 default -> new IllegalStateException("internal detail that must not reach the client");

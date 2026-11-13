@@ -50,6 +50,18 @@ class SecurityConfig {
                         .permitAll()
                         .requestMatchers(HttpMethod.GET, "/api/auth/me")
                         .permitAll()
+                        // A reset link can only be asked for without a session: whoever needs one can't sign in.
+                        .requestMatchers(HttpMethod.POST, "/api/auth/forgot-password")
+                        .permitAll()
+                        // Changes to one's own account.
+                        .requestMatchers(
+                                HttpMethod.POST,
+                                "/api/auth/update-password",
+                                "/api/auth/reauthenticate",
+                                "/api/auth/update-profile",
+                                "/api/auth/send-verification",
+                                "/api/auth/refresh-verification")
+                        .authenticated()
                         .anyRequest()
                         .denyAll())
                 // Cross-site request forgery tricks a signed-in browser into sending a request with its cookies.
