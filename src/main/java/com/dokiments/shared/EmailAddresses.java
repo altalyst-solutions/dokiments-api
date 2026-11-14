@@ -19,18 +19,11 @@ public final class EmailAddresses {
     private static final Pattern PLAUSIBLE = Pattern.compile(
             "^(?:[A-Za-z0-9_'+\\-]+\\.)*[A-Za-z0-9_'+\\-]*[A-Za-z0-9_+-]@(?:[A-Za-z0-9][A-Za-z0-9\\-]*\\.)+[A-Za-z]{2,}$");
 
-    /**
-     * Spaces around an address, as JavaScript's {@code trim()} removes them. Java's {@code strip()} keeps non-breaking
-     * spaces and the byte order mark, which a pasted address can carry, so they are listed too.
-     */
-    private static final Pattern SURROUNDING_SPACE =
-            Pattern.compile("^[\\s\\u00A0\\u2007\\u202F\\uFEFF]+|[\\s\\u00A0\\u2007\\u202F\\uFEFF]+$");
-
     private EmailAddresses() {}
 
-    /** The address without the surrounding spaces. */
+    /** The address without the surrounding spaces, removed as {@link TypedText#trim} does. */
     public static String trim(String typed) {
-        return SURROUNDING_SPACE.matcher(typed).replaceAll("");
+        return TypedText.trim(typed);
     }
 
     /** Whether an already trimmed address is implausible, or longer than {@value #MAX_LENGTH} characters. */
