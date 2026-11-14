@@ -21,8 +21,8 @@ public record DokimentsProperties(@DefaultValue Features features) {
      *
      * @param documentSharing whether documents can be shared for signature. While off, the sharing endpoints answer
      *     {@code 404}, as if they didn't exist.
-     * @param tierLocks whether plan limits are enforced (which templates a plan includes, how many can be saved). Only
-     *     ever switched off for testing.
+     * @param tierLocks whether plans limit which templates may be used. While off, every plan includes every template.
+     *     The limit on how many templates a free account may save applies either way, as with the web app's flag.
      */
     public record Features(
             @DefaultValue("false") boolean documentSharing,

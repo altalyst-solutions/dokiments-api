@@ -8,6 +8,9 @@ spring:
       url: redis://overridden-by-testcontainers:6379
 
 dokiments:
+  # Each test writes its own catalog, so it must be read on every request rather than reused.
+  templates:
+    catalog-cache-time: 0s
   # The emulator hosts are set by TestcontainersConfiguration once its container has started.
   auth:
     require-emulator: true
