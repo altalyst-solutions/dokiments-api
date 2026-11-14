@@ -139,7 +139,8 @@ Rules, enforced by `HexagonalArchitectureTest` (ArchUnit) and `ModularityTest` (
   the code no longer matches it. When a change to an endpoint is intended, run `./gradlew updateOpenApi` and include
   the file; when it isn't, the failure means the contract changed by mistake: fix the code.
 - Describe each controller with `@Tag` and each endpoint with `@Operation` (summary, and a description of anything
-  the web app relies on). Add `@ApiResponse` only for errors specific to the endpoint: `400` for a body, `500` and
+  the web app relies on). Give the operation an `operationId` when its method name is a common one (`list`, `get`,
+  `save`), because springdoc numbers clashing names, and adding an endpoint would otherwise rename an existing one. Add `@ApiResponse` only for errors specific to the endpoint: `400` for a body, `500` and
   `503` are added to every endpoint by `platform.apidocs.OpenApiConfiguration`.
 - Swagger UI and `/v3/api-docs` exist only in the `dev` profile. Never enable them elsewhere.
 - The API reads and writes JSON only (`platform.web.JsonOnlyConfiguration`). Don't add other body formats.

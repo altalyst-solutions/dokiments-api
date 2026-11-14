@@ -100,6 +100,10 @@ The `clients` module is the reference for endpoints that work on the signed-in u
 - A change reads the document first, then writes only the fields sent with `update()`, which never creates a
   document. Two changes to different fields at once both stay.
 - Older documents are read leniently, with a missing field read as empty, while everything written follows the rules.
+- When an answer depends on the user's plan, the use case asks `users.UserProfiles.roleOf(uid)`. That reads the role
+  as stored now, so an upgrade counts straight away rather than at the next sign-in (`templates` does this).
+- A rule that must hold across several documents, such as a free account's limit of saved templates, is checked and
+  written in one Firestore transaction, so two requests at the same moment can't both get past it.
 
 ## How it is enforced
 
