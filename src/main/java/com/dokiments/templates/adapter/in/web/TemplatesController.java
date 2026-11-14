@@ -38,17 +38,25 @@ class TemplatesController {
             summary = "List the catalog",
             description = "Every active style, unfiltered, for the style tabs, and the active templates, optionally"
                     + " only those of one style or tier. Both in their intended order.")
-    @ApiResponse(responseCode = "200", description = "The styles and templates")
+    @ApiResponse(
+            responseCode = "200",
+            description = "The styles and templates. Only templates is filtered: styles always lists every active"
+                    + " style, whatever the filter, because the web app shows them all as tabs.")
     @ApiResponse(
             responseCode = "400",
             description = "An unknown style or tier (\"Invalid query parameters.\")",
             content = @Content(schema = @Schema(ref = ERROR)))
     @ApiResponse(responseCode = "401", description = "Not signed in", content = @Content(schema = @Schema(ref = ERROR)))
     CatalogResponse list(
-            @Parameter(schema = @Schema(allowableValues = {"classic", "modern", "brutalist", "minimalist"}))
+            @Parameter(
+                            description = "Only templates in this style. The styles list stays complete.",
+                            schema = @Schema(allowableValues = {"classic", "modern", "brutalist", "minimalist"}))
                     @RequestParam(required = false)
                     String styleId,
-            @Parameter(schema = @Schema(allowableValues = {"free", "silver", "gold"})) @RequestParam(required = false)
+            @Parameter(
+                            description = "Only templates of this tier. The styles list stays complete.",
+                            schema = @Schema(allowableValues = {"free", "silver", "gold"}))
+                    @RequestParam(required = false)
                     String tier) {
         var listing = templates.list(CatalogFilter.of(styleId, tier));
         return new CatalogResponse(
@@ -73,7 +81,14 @@ class TemplatesController {
     }
 
     /** The catalog: {@code { "styles": [...], "templates": [...] }}. */
-    record CatalogResponse(List<StyleResponse> styles, List<TemplateResponse> templates) {}
+    record CatalogResponse(
+            @Schema(description = "Every active style, in order. Never filtered: the web app shows them all as tabs.")
+            List<StyleResponse> styles,
+
+            @Schema(
+                    description = "The active templates matching styleId and tier, in order. All of them without a"
+                            + " filter.")
+            List<TemplateResponse> templates) {}
 
     /** One template: {@code { "template": {...} }}. */
     record TemplateEnvelope(TemplateResponse template) {}

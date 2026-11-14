@@ -982,7 +982,8 @@ paths:
         \ order."
       operationId: listTemplates
       parameters:
-      - in: query
+      - description: Only templates in this style. The styles list stays complete.
+        in: query
         name: styleId
         required: false
         schema:
@@ -992,7 +993,8 @@ paths:
           - modern
           - brutalist
           - minimalist
-      - in: query
+      - description: Only templates of this tier. The styles list stays complete.
+        in: query
         name: tier
         required: false
         schema:
@@ -1007,7 +1009,9 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/CatalogResponse"
-          description: The styles and templates
+          description: "The styles and templates. Only templates is filtered: styles\
+            \ always lists every active style, whatever the filter, because the web\
+            \ app shows them all as tabs."
         "400":
           content:
             application/json:
@@ -1139,10 +1143,14 @@ components:
       properties:
         styles:
           type: array
+          description: "Every active style, in order. Never filtered: the web app\
+            \ shows them all as tabs."
           items:
             $ref: "#/components/schemas/StyleResponse"
         templates:
           type: array
+          description: "The active templates matching styleId and tier, in order.\
+            \ All of them without a filter."
           items:
             $ref: "#/components/schemas/TemplateResponse"
     ClientChangesRequest:
