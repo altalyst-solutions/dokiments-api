@@ -1,5 +1,6 @@
 package com.dokiments.auth.domain;
 
+import com.dokiments.shared.SignedInUser;
 import com.dokiments.users.UserProfile;
 import java.time.Duration;
 import java.time.Instant;
@@ -16,7 +17,8 @@ import java.time.Instant;
  * @param tokens the Firebase tokens
  * @param expiresAt the end of the session, one day after sign-in
  */
-public record AuthSession(UserProfile user, boolean emailVerified, AuthTokens tokens, Instant expiresAt) {
+public record AuthSession(UserProfile user, boolean emailVerified, AuthTokens tokens, Instant expiresAt)
+        implements SignedInUser {
 
     /** How long a session lasts from sign-in. Not extended by activity or refreshes. */
     public static final Duration MAX_AGE = Duration.ofDays(1);
@@ -30,6 +32,12 @@ public record AuthSession(UserProfile user, boolean emailVerified, AuthTokens to
     /** A new session, starting the one-day clock. */
     public static AuthSession start(UserProfile user, boolean emailVerified, AuthTokens tokens, Instant now) {
         return new AuthSession(user, emailVerified, tokens, now.plus(MAX_AGE));
+    }
+
+    /** The signed-in user's ID, which is all that other modules see of the session. */
+    @Override
+    public String uid() {
+        return user.uid();
     }
 
     /** Whether the session has reached its end and must no longer be accepted. */

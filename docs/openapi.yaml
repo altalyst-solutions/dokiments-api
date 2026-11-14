@@ -587,6 +587,204 @@ paths:
       summary: Change the name and details in the settings
       tags:
       - Account
+  /api/clients:
+    get:
+      description: "The signed-in user's clients, the most recently added first."
+      operationId: list
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ClientsResponse"
+          description: "The clients, an empty list for a user who has none"
+        "401":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+          description: Not signed in
+        "500":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+          description: "An unexpected failure: \"Something went wrong. Please try\
+            \ again.\""
+        "503":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+          description: "An external service, such as Firestore, couldn't be reached:\
+            \ \"Couldn't reach an external service. Please try again in a moment.\""
+      summary: List the clients
+      tags:
+      - Clients
+    post:
+      description: "Every field is trimmed. The name, company name, email and phone\
+        \ are required; a missing address, BRN or national ID is stored as empty text."
+      operationId: add
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/NewClientRequest"
+        required: true
+      responses:
+        "201":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ClientEnvelope"
+          description: "Added, with its new ID"
+        "400":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+          description: The body isn't valid JSON ("Request body must be valid JSON.")
+            or doesn't match what the endpoint expects ("Invalid request body.").
+        "401":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+          description: Not signed in
+        "403":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+          description: "The CSRF token is missing or wrong: send the value of the\
+            \ XSRF-TOKEN cookie in the X-XSRF-TOKEN header (\"Forbidden.\")."
+        "500":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+          description: "An unexpected failure: \"Something went wrong. Please try\
+            \ again.\""
+        "503":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+          description: "An external service, such as Firestore, couldn't be reached:\
+            \ \"Couldn't reach an external service. Please try again in a moment.\""
+      summary: Add a client
+      tags:
+      - Clients
+  /api/clients/{clientId}:
+    delete:
+      description: Also 204 when there is no such client. Documents already prepared
+        for the client keep its details.
+      operationId: remove
+      parameters:
+      - in: path
+        name: clientId
+        required: true
+        schema:
+          type: string
+      responses:
+        "204":
+          description: "Removed, or not there"
+        "401":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+          description: Not signed in
+        "403":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+          description: "The CSRF token is missing or wrong: send the value of the\
+            \ XSRF-TOKEN cookie in the X-XSRF-TOKEN header (\"Forbidden.\")."
+        "500":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+          description: "An unexpected failure: \"Something went wrong. Please try\
+            \ again.\""
+        "503":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+          description: "An external service, such as Firestore, couldn't be reached:\
+            \ \"Couldn't reach an external service. Please try again in a moment.\""
+      summary: Remove a client
+      tags:
+      - Clients
+    patch:
+      description: Only the fields sent change; at least one is needed. They follow
+        the same rules as for a new client. The answer is the whole client as changed.
+      operationId: change
+      parameters:
+      - in: path
+        name: clientId
+        required: true
+        schema:
+          type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ClientChangesRequest"
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ClientEnvelope"
+          description: Changed
+        "400":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+          description: The body isn't valid JSON ("Request body must be valid JSON.")
+            or doesn't match what the endpoint expects ("Invalid request body.").
+        "401":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+          description: Not signed in
+        "403":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+          description: "The CSRF token is missing or wrong: send the value of the\
+            \ XSRF-TOKEN cookie in the X-XSRF-TOKEN header (\"Forbidden.\")."
+        "404":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+          description: No such client among the user's own ("Client not found.")
+        "500":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+          description: "An unexpected failure: \"Something went wrong. Please try\
+            \ again.\""
+        "503":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+          description: "An external service, such as Firestore, couldn't be reached:\
+            \ \"Couldn't reach an external service. Please try again in a moment.\""
+      summary: Change a client
+      tags:
+      - Clients
   /api/newsletter:
     post:
       description: "Public: no session needed. The address is trimmed and lower-cased;\
@@ -680,6 +878,61 @@ components:
           type: string
         website:
           type: string
+    ClientChangesRequest:
+      type: object
+      properties:
+        address:
+          type: string
+        brn:
+          type: string
+        companyName:
+          type: string
+        email:
+          type: string
+        name:
+          type: string
+        nationalId:
+          type: string
+        phone:
+          type: string
+    ClientEnvelope:
+      type: object
+      properties:
+        client:
+          $ref: "#/components/schemas/ClientResponse"
+    ClientResponse:
+      type: object
+      properties:
+        address:
+          type: string
+        brn:
+          type: string
+        companyName:
+          type: string
+        createdAt:
+          type: integer
+          format: int64
+        email:
+          type: string
+        id:
+          type: string
+          example: client_mhx2k1q8_4f9a2c
+        name:
+          type: string
+        nationalId:
+          type: string
+        phone:
+          type: string
+        updatedAt:
+          type: integer
+          format: int64
+    ClientsResponse:
+      type: object
+      properties:
+        clients:
+          type: array
+          items:
+            $ref: "#/components/schemas/ClientResponse"
     EmailRequest:
       type: object
       properties:
@@ -700,6 +953,32 @@ components:
           description: A message safe to show to the user.
       required:
       - error
+    NewClientRequest:
+      type: object
+      properties:
+        address:
+          type: string
+        brn:
+          type: string
+        companyName:
+          type: string
+          example: Acme Ltd
+        email:
+          type: string
+          example: jane@acme.example
+        name:
+          type: string
+          example: Jane Doe
+        nationalId:
+          type: string
+        phone:
+          type: string
+          example: +230 5123 4567
+      required:
+      - companyName
+      - email
+      - name
+      - phone
     OkResponse:
       type: object
       properties:
