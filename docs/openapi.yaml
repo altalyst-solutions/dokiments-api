@@ -828,6 +828,266 @@ paths:
       summary: Subscribe to the newsletter
       tags:
       - Newsletter
+  /api/saved-templates:
+    get:
+      description: "Each with its template from the catalog, in the order of their\
+        \ template IDs. A saved template whose template is no longer in the catalog\
+        \ is left out."
+      operationId: listSavedTemplates
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SavedTemplatesResponse"
+          description: "The saved templates, an empty list for a user who has none"
+        "401":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+          description: Not signed in
+        "500":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+          description: "An unexpected failure: \"Something went wrong. Please try\
+            \ again.\""
+        "503":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+          description: "An external service, such as Firestore, couldn't be reached:\
+            \ \"Couldn't reach an external service. Please try again in a moment.\""
+      summary: List the saved templates
+      tags:
+      - Saved templates
+    post:
+      description: "Adds a template of the catalog to the library. Saving one that\
+        \ is saved already answers 200 and only updates savedAt. The plan decides\
+        \ which templates may be saved, and a free account keeps at most two."
+      operationId: saveTemplate
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SaveRequest"
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SavedResponse"
+          description: Saved already; savedAt updated
+        "201":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SavedResponse"
+          description: Added
+        "400":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+          description: The body isn't valid JSON ("Request body must be valid JSON.")
+            or doesn't match what the endpoint expects ("Invalid request body.").
+        "401":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+          description: Not signed in
+        "403":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+          description: "Not in the plan (\"Your plan does not include this template.\"\
+            ), or a free account at its limit (\"You've reached your saved template\
+            \ limit.\")"
+        "404":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+          description: Not in the catalog ("Template not found.")
+        "500":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+          description: "An unexpected failure: \"Something went wrong. Please try\
+            \ again.\""
+        "503":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+          description: "An external service, such as Firestore, couldn't be reached:\
+            \ \"Couldn't reach an external service. Please try again in a moment.\""
+      summary: Save a template
+      tags:
+      - Saved templates
+  /api/saved-templates/{templateId}:
+    delete:
+      description: Also 204 when it isn't saved.
+      operationId: removeSavedTemplate
+      parameters:
+      - in: path
+        name: templateId
+        required: true
+        schema:
+          type: string
+      responses:
+        "204":
+          description: "Removed, or not there"
+        "401":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+          description: Not signed in
+        "403":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+          description: "The CSRF token is missing or wrong: send the value of the\
+            \ XSRF-TOKEN cookie in the X-XSRF-TOKEN header (\"Forbidden.\")."
+        "500":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+          description: "An unexpected failure: \"Something went wrong. Please try\
+            \ again.\""
+        "503":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+          description: "An external service, such as Firestore, couldn't be reached:\
+            \ \"Couldn't reach an external service. Please try again in a moment.\""
+      summary: Remove a saved template
+      tags:
+      - Saved templates
+  /api/templates:
+    get:
+      description: "Every active style, unfiltered, for the style tabs, and the active\
+        \ templates, optionally only those of one style or tier. Both in their intended\
+        \ order."
+      operationId: listTemplates
+      parameters:
+      - description: Only templates in this style. The styles list stays complete.
+        in: query
+        name: styleId
+        required: false
+        schema:
+          type: string
+          enum:
+          - classic
+          - modern
+          - brutalist
+          - minimalist
+      - description: Only templates of this tier. The styles list stays complete.
+        in: query
+        name: tier
+        required: false
+        schema:
+          type: string
+          enum:
+          - free
+          - silver
+          - gold
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/CatalogResponse"
+          description: "The styles and templates. Only templates is filtered: styles\
+            \ always lists every active style, whatever the filter, because the web\
+            \ app shows them all as tabs."
+        "400":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+          description: An unknown style or tier ("Invalid query parameters.")
+        "401":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+          description: Not signed in
+        "500":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+          description: "An unexpected failure: \"Something went wrong. Please try\
+            \ again.\""
+        "503":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+          description: "An external service, such as Firestore, couldn't be reached:\
+            \ \"Couldn't reach an external service. Please try again in a moment.\""
+      summary: List the catalog
+      tags:
+      - Templates
+  /api/templates/{id}:
+    get:
+      description: "One template of the catalog, with its style, to resolve the template\
+        \ of a saved template or a document."
+      operationId: getTemplate
+      parameters:
+      - in: path
+        name: id
+        required: true
+        schema:
+          type: string
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/TemplateEnvelope"
+          description: The template
+        "401":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+          description: Not signed in
+        "404":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+          description: "Not in the catalog, or hidden (\"Template not found.\")"
+        "500":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+          description: "An unexpected failure: \"Something went wrong. Please try\
+            \ again.\""
+        "503":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+          description: "An external service, such as Firestore, couldn't be reached:\
+            \ \"Couldn't reach an external service. Please try again in a moment.\""
+      summary: Get a template
+      tags:
+      - Templates
 components:
   schemas:
     AuthResponse:
@@ -878,6 +1138,21 @@ components:
           type: string
         website:
           type: string
+    CatalogResponse:
+      type: object
+      properties:
+        styles:
+          type: array
+          description: "Every active style, in order. Never filtered: the web app\
+            \ shows them all as tabs."
+          items:
+            $ref: "#/components/schemas/StyleResponse"
+        templates:
+          type: array
+          description: "The active templates matching styleId and tier, in order.\
+            \ All of them without a filter."
+          items:
+            $ref: "#/components/schemas/TemplateResponse"
     ClientChangesRequest:
       type: object
       properties:
@@ -953,6 +1228,18 @@ components:
           description: A message safe to show to the user.
       required:
       - error
+    FieldResponse:
+      type: object
+      properties:
+        key:
+          type: string
+        label:
+          type: string
+        placeholder:
+          type: string
+        type:
+          type: string
+          example: text
     NewClientRequest:
       type: object
       properties:
@@ -1013,6 +1300,42 @@ components:
           type: string
       required:
       - displayName
+    SaveRequest:
+      type: object
+      properties:
+        templateId:
+          type: string
+          example: classic-invoice
+          minLength: 1
+      required:
+      - templateId
+    SavedResponse:
+      type: object
+      properties:
+        savedAt:
+          type: integer
+          format: int64
+        savedId:
+          type: string
+        templateId:
+          type: string
+    SavedTemplateEntry:
+      type: object
+      properties:
+        savedAt:
+          type: integer
+          format: int64
+        template:
+          $ref: "#/components/schemas/TemplateResponse"
+        templateId:
+          type: string
+    SavedTemplatesResponse:
+      type: object
+      properties:
+        savedTemplates:
+          type: array
+          items:
+            $ref: "#/components/schemas/SavedTemplateEntry"
     SignInRequest:
       type: object
       properties:
@@ -1052,6 +1375,22 @@ components:
       - displayName
       - email
       - password
+    StyleResponse:
+      type: object
+      properties:
+        description:
+          type: string
+        id:
+          type: string
+          example: classic
+        name:
+          type: string
+        tier:
+          type: string
+          enum:
+          - free
+          - silver
+          - gold
     SubscribeRequest:
       type: object
       properties:
@@ -1067,3 +1406,36 @@ components:
           type: string
           enum:
           - subscribed
+    TemplateEnvelope:
+      type: object
+      properties:
+        template:
+          $ref: "#/components/schemas/TemplateResponse"
+    TemplateResponse:
+      type: object
+      properties:
+        createdAt:
+          type: integer
+          format: int64
+        description:
+          type: string
+        documentType:
+          type: string
+          example: invoice
+        fields:
+          type: array
+          items:
+            $ref: "#/components/schemas/FieldResponse"
+        id:
+          type: string
+          example: classic-invoice
+        name:
+          type: string
+        style:
+          $ref: "#/components/schemas/StyleResponse"
+        tier:
+          type: string
+          enum:
+          - free
+          - silver
+          - gold

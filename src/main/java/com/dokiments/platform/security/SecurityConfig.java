@@ -74,6 +74,15 @@ class SecurityConfig {
                         .authenticated()
                         .requestMatchers(HttpMethod.DELETE, "/api/clients/*")
                         .authenticated()
+                        // The template catalog, and the signed-in user's saved templates.
+                        .requestMatchers(HttpMethod.GET, "/api/templates", "/api/templates/*")
+                        .authenticated()
+                        .requestMatchers(HttpMethod.GET, "/api/saved-templates")
+                        .authenticated()
+                        .requestMatchers(HttpMethod.POST, "/api/saved-templates")
+                        .authenticated()
+                        .requestMatchers(HttpMethod.DELETE, "/api/saved-templates/*")
+                        .authenticated()
                         .anyRequest()
                         .denyAll())
                 // Cross-site request forgery tricks a signed-in browser into sending a request with its cookies.

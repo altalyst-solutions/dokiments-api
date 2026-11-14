@@ -142,6 +142,9 @@ example `http://localhost:8080`, or your `PORT`) and register that callback addr
 The account is still created in the Auth emulator, not in a real Firebase project. The integration tests don't need
 to reach Google: they replace its token endpoint with a stand-in (`GoogleSignInIT`).
 
+The local emulator starts without a template catalog, so `GET /api/templates` answers empty lists until you add it
+with `scripts/seed-local-catalog.sh` (see [Template catalog](#template-catalog)).
+
 Endpoints that aren't built yet answer `401`. To see what a request stored, read the emulator directly, as in
 [Looking at the data](#looking-at-the-data).
 
@@ -294,6 +297,32 @@ From a terminal, this lists a collection with the values unwrapped:
 ```bash
 curl -s "localhost:8085/v1/projects/demo-dokiments/databases/(default)/documents/newsletter" | python3 -c "import json,sys; [print(d['name'].rsplit('/',1)[1][:12], {k:list(v.values())[0] for k,v in d['fields'].items()}) for d in json.load(sys.stdin).get('documents',[])]"
 ```
+
+### Template catalog
+
+The templates the web app offers live in Firestore, in the `templateStyles` and `templates` collections, which the
+local emulator starts without. Fill them, with the emulators running (`./gradlew bootRun`, or `docker compose up -d`):
+
+```bash
+scripts/seed-local-catalog.sh
+```
+
+It writes the 4 styles and 60 templates the web app offers (every style with every document type, such as
+`classic-invoice`), in the shape and order they have in production. They are kept with the rest of the local data.
+Running it again writes the same documents again and undoes local changes to them; other data is left alone.
+
+The catalog comes from `scripts/local-catalog.json`: each style, and each document type with its form fields, once.
+When the web app's catalog changes, update that file to match. To change the local catalog by hand, edit the
+documents on the Emulator UI's **Firestore** page:
+
+| Collection, document ID | Fields |
+| --- | --- |
+| `templateStyles/classic` | `name` (text), `description` (text), `tier` (`free`, `silver` or `gold`), `sortOrder` (number), `isActive` (`true`) |
+| `templates/classic-invoice` | `name`, `description`, `documentType` (such as `invoice`), `styleId` (`classic`), `tier`, `sortOrder`, `isActive` (`true`), and `fields`, a list of maps with `key`, `label`, `type` (`text`, `textarea`, `date` or `number`) and an optional `placeholder` |
+
+Only entries with `isActive` set to `true` are shown, and a template only when its style is shown too. Locally the
+catalog is read on every request, so a change shows at once; deployed, it is reused for five minutes
+(`dokiments.templates.catalog-cache-time`).
 
 ## Running the API as a container
 

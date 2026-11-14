@@ -26,7 +26,7 @@ All configuration comes from environment variables, so the same image runs on an
 | `OTEL_TRACES_SAMPLER_ARG` | No | Share of requests whose trace is kept, from `0` to `1`. Defaults to `0.1`, and `1` in `dev`. |
 | `SPRING_PROFILES_ACTIVE` | No | `prod` in the Docker image, `dev` for `bootRun`. |
 | `DOCUMENT_SHARING_ENABLED` | No | `true` turns on sharing documents for signature. Off by default; while off, the sharing endpoints answer `404`. |
-| `TIER_LOCKS_ENABLED` | No | `false` stops enforcing plan limits. On by default; only switch it off for testing. |
+| `TIER_LOCKS_ENABLED` | No | `false` lets every plan use every template. On by default. The limit on how many templates a free account may save applies either way. |
 
 ## Profiles
 
@@ -214,6 +214,8 @@ When adding a setting, add it to `.env.example` and to the table above.
 | `POST /api/auth/update-password`, `reauthenticate`, `update-profile`, `send-verification`, `refresh-verification` (all under `/api/auth/`) | Signed in, CSRF token | Changes to one's own account |
 | `GET /api/clients`, `POST /api/clients` | Signed in (CSRF token to add) | The user's clients: list, newest first, and add |
 | `PATCH /api/clients/{clientId}`, `DELETE /api/clients/{clientId}` | Signed in, CSRF token | Change some of a client's details, or remove it (`204` also when it isn't there) |
+| `GET /api/templates`, `GET /api/templates/{id}` | Signed in | The template catalog, optionally by `styleId` or `tier`, and one template |
+| `GET /api/saved-templates`, `POST /api/saved-templates`, `DELETE /api/saved-templates/{templateId}` | Signed in (CSRF token to change) | The user's saved templates: list, save (within the plan; at most two for a free account) and remove |
 | `/swagger-ui.html`, `/v3/api-docs` | `dev` only | Swagger UI and the API description. Elsewhere they don't exist and answer `401`. |
 | Everything else | Denied (`401`) | Opened explicitly as features are added |
 

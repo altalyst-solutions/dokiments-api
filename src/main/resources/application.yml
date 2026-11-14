@@ -49,7 +49,8 @@ dokiments:
   features:
     # Sharing documents for signature. Off unless DOCUMENT_SHARING_ENABLED=true.
     document-sharing: ${DOCUMENT_SHARING_ENABLED:false}
-    # Plan limits. On unless TIER_LOCKS_ENABLED=false, which is only meant for testing.
+    # Which templates each plan may use. On unless TIER_LOCKS_ENABLED=false, which lets every plan use every
+    # template; the limit on how many a free account may save applies either way.
     tier-locks: ${TIER_LOCKS_ENABLED:true}
   # Which Firebase Auth to use (see com.dokiments.auth.adapter.out.firebase.FirebaseAuthProperties).
   # The Web API key is required: deployed, sign-in goes to the real Firebase Auth. Locally and in tests,

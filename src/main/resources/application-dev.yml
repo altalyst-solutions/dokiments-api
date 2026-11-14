@@ -33,6 +33,10 @@ spring:
       url: ${REDIS_URL:redis://localhost:6379}
 
 dokiments:
+  # The template catalog is read on every request locally, so a change to it in the emulator shows at once.
+  templates:
+    catalog-cache-time: 0s
+
   # Always the local emulator from compose.yaml, never a real project: require-emulator makes
   # the application refuse to start otherwise.
   firestore:

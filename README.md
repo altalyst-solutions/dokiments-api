@@ -102,3 +102,4 @@ are just as useful for developers.
 | Update the API description after changing an endpoint | `./gradlew updateOpenApi` |
 | Browse and try the API (while `bootRun` runs) | [localhost:8080/swagger-ui.html](http://localhost:8080/swagger-ui.html) |
 | IntelliJ inspections from the command line | `scripts/inspect.sh` |
+| Fill the local emulator with the template catalog | `scripts/seed-local-catalog.sh` |
