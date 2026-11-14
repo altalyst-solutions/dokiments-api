@@ -65,6 +65,15 @@ class SecurityConfig {
                                 "/api/auth/send-verification",
                                 "/api/auth/refresh-verification")
                         .authenticated()
+                        // The signed-in user's clients.
+                        .requestMatchers(HttpMethod.GET, "/api/clients")
+                        .authenticated()
+                        .requestMatchers(HttpMethod.POST, "/api/clients")
+                        .authenticated()
+                        .requestMatchers(HttpMethod.PATCH, "/api/clients/*")
+                        .authenticated()
+                        .requestMatchers(HttpMethod.DELETE, "/api/clients/*")
+                        .authenticated()
                         .anyRequest()
                         .denyAll())
                 // Cross-site request forgery tricks a signed-in browser into sending a request with its cookies.
