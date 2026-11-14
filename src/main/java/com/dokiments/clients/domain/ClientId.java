@@ -1,6 +1,6 @@
 package com.dokiments.clients.domain;
 
-import java.nio.charset.StandardCharsets;
+import com.dokiments.shared.DocumentIds;
 import java.time.Instant;
 import java.util.Optional;
 import java.util.random.RandomGenerator;
@@ -18,11 +18,8 @@ public record ClientId(String value) {
 
     private static final String DIGITS = "0123456789abcdefghijklmnopqrstuvwxyz";
 
-    /** Firestore's limit for a document ID, in UTF-8 bytes. */
-    private static final int MAX_BYTES = 1500;
-
     public ClientId {
-        if (!isStorable(value)) {
+        if (!DocumentIds.isStorable(value)) {
             throw new IllegalArgumentException("Not a storable client ID");
         }
     }
@@ -40,19 +37,6 @@ public record ClientId(String value) {
 
     /** The ID from a URL, or empty when no client could have it. */
     public static Optional<ClientId> parse(String asked) {
-        return isStorable(asked) ? Optional.of(new ClientId(asked)) : Optional.empty();
-    }
-
-    /**
-     * Firestore's rules for a document ID: not empty, at most 1500 bytes, no {@code /}, not {@code .} or {@code ..},
-     * and not of the form {@code __name__}, which Firestore reserves.
-     */
-    private static boolean isStorable(String id) {
-        return !id.isEmpty()
-                && id.getBytes(StandardCharsets.UTF_8).length <= MAX_BYTES
-                && id.indexOf('/') < 0
-                && !id.equals(".")
-                && !id.equals("..")
-                && !(id.length() >= 4 && id.startsWith("__") && id.endsWith("__"));
+        return DocumentIds.isStorable(asked) ? Optional.of(new ClientId(asked)) : Optional.empty();
     }
 }
