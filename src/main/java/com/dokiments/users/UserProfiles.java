@@ -6,6 +6,14 @@ import org.jspecify.annotations.Nullable;
 public interface UserProfiles {
 
     /**
+     * The account's current role, as stored, so a change of plan counts straight away rather than at the next sign-in.
+     * {@link UserRole#FREE} for an account without a profile.
+     *
+     * @throws com.dokiments.shared.error.UpstreamUnavailableException if the profile couldn't be read
+     */
+    UserRole roleOf(String uid);
+
+    /**
      * The profile of a signed-in account, created on its first sign-in.
      *
      * <p>A new profile always gets the {@link UserRole#FREE} role, and {@code displayName}, or the part of the address

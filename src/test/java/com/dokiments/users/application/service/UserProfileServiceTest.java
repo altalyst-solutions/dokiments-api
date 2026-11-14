@@ -61,6 +61,24 @@ class UserProfileServiceTest {
     }
 
     @Test
+    void theRoleIsAsStoredAndFreeWithoutAProfile() {
+        var jane = service.findOrCreate("uid-1", "jane@example.com", "Jane", AuthProvider.PASSWORD);
+        stored.put(
+                "uid-1",
+                new UserProfile(
+                        jane.uid(),
+                        jane.email(),
+                        jane.displayName(),
+                        UserRole.GOLD,
+                        jane.provider(),
+                        jane.linkedGoogle(),
+                        jane.details()));
+
+        assertThat(service.roleOf("uid-1")).isEqualTo(UserRole.GOLD);
+        assertThat(service.roleOf("uid-unknown")).isEqualTo(UserRole.FREE);
+    }
+
+    @Test
     void withoutANameTheAddressBeforeTheAtIsUsed() {
         assertThat(service.findOrCreate("uid-1", "jane.doe@example.com", "  ", AuthProvider.GOOGLE)
                         .displayName())

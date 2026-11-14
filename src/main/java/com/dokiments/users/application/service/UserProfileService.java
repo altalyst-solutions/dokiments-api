@@ -34,6 +34,11 @@ class UserProfileService implements UserProfiles {
     }
 
     @Override
+    public UserRole roleOf(String uid) {
+        return store.find(uid).map(UserProfile::role).orElse(UserRole.FREE);
+    }
+
+    @Override
     public UserProfile updateProfile(UserProfile current, ProfileChanges changes) {
         store.update(current.uid(), changes, clock.instant());
         // As the web app answers: the changed fields as sent, empty ones as empty text.

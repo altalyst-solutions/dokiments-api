@@ -245,6 +245,11 @@ class AuthServiceTest {
         UserRole role = UserRole.FREE;
 
         @Override
+        public UserRole roleOf(String uid) {
+            return role;
+        }
+
+        @Override
         public UserProfile findOrCreate(String uid, String email, @Nullable String displayName, AuthProvider provider) {
             created.add(uid + " " + displayName + " " + provider);
             return new UserProfile(uid, email, "Jane", role, provider, false, UserProfile.Details.NONE);
