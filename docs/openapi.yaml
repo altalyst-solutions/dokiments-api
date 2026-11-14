@@ -785,6 +785,270 @@ paths:
       summary: Change a client
       tags:
       - Clients
+  /api/documents:
+    get:
+      description: "The signed-in user's documents, in the order of their IDs, optionally\
+        \ only those made from one template."
+      operationId: listDocuments
+      parameters:
+      - description: "Only documents made from this template, such as classic-invoice"
+        in: query
+        name: templateId
+        required: false
+        schema:
+          type: string
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DocumentsResponse"
+          description: "The documents, an empty list for a user who has none"
+        "400":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+          description: An empty templateId ("Invalid query parameters.")
+        "401":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+          description: Not signed in
+        "500":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+          description: "An unexpected failure: \"Something went wrong. Please try\
+            \ again.\""
+        "503":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+          description: "An external service, such as Firestore, couldn't be reached:\
+            \ \"Couldn't reach an external service. Please try again in a moment.\""
+      summary: List the documents
+      tags:
+      - Documents
+    post:
+      description: "From a template of the catalog. The document keeps a copy of the\
+        \ template as it is now (templateSnapshot), so later changes to the catalog\
+        \ never change it. The name is 1 to 200 characters; values holds at most 50\
+        \ texts of at most 20,000 characters each."
+      operationId: createDocument
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/NewDocumentRequest"
+        required: true
+      responses:
+        "201":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DocumentEnvelope"
+          description: "Made, with its new ID"
+        "400":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+          description: The body isn't valid JSON ("Request body must be valid JSON.")
+            or doesn't match what the endpoint expects ("Invalid request body.").
+        "401":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+          description: Not signed in
+        "403":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+          description: "The CSRF token is missing or wrong: send the value of the\
+            \ XSRF-TOKEN cookie in the X-XSRF-TOKEN header (\"Forbidden.\")."
+        "404":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+          description: The template isn't in the catalog ("Template not found.")
+        "500":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+          description: "An unexpected failure: \"Something went wrong. Please try\
+            \ again.\""
+        "503":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+          description: "An external service, such as Firestore, couldn't be reached:\
+            \ \"Couldn't reach an external service. Please try again in a moment.\""
+      summary: Make a document
+      tags:
+      - Documents
+  /api/documents/{id}:
+    delete:
+      description: Also 204 when there is no such document.
+      operationId: removeDocument
+      parameters:
+      - in: path
+        name: id
+        required: true
+        schema:
+          type: string
+      responses:
+        "204":
+          description: "Removed, or not there"
+        "401":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+          description: Not signed in
+        "403":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+          description: "The CSRF token is missing or wrong: send the value of the\
+            \ XSRF-TOKEN cookie in the X-XSRF-TOKEN header (\"Forbidden.\")."
+        "500":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+          description: "An unexpected failure: \"Something went wrong. Please try\
+            \ again.\""
+        "503":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+          description: "An external service, such as Firestore, couldn't be reached:\
+            \ \"Couldn't reach an external service. Please try again in a moment.\""
+      summary: Remove a document
+      tags:
+      - Documents
+    get:
+      operationId: getDocument
+      parameters:
+      - in: path
+        name: id
+        required: true
+        schema:
+          type: string
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DocumentEnvelope"
+          description: The document
+        "401":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+          description: Not signed in
+        "404":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+          description: No such document among the user's own ("Document not found.")
+        "500":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+          description: "An unexpected failure: \"Something went wrong. Please try\
+            \ again.\""
+        "503":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+          description: "An external service, such as Firestore, couldn't be reached:\
+            \ \"Couldn't reach an external service. Please try again in a moment.\""
+      summary: Get a document
+      tags:
+      - Documents
+    patch:
+      description: "Its name, its values, or both; at least one is needed. The values\
+        \ are replaced as a whole. The template it was made from never changes. The\
+        \ answer is the whole document as stored."
+      operationId: changeDocument
+      parameters:
+      - in: path
+        name: id
+        required: true
+        schema:
+          type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DocumentChangesRequest"
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DocumentEnvelope"
+          description: Changed
+        "400":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+          description: The body isn't valid JSON ("Request body must be valid JSON.")
+            or doesn't match what the endpoint expects ("Invalid request body.").
+        "401":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+          description: Not signed in
+        "403":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+          description: "The CSRF token is missing or wrong: send the value of the\
+            \ XSRF-TOKEN cookie in the X-XSRF-TOKEN header (\"Forbidden.\")."
+        "404":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+          description: No such document among the user's own ("Document not found.")
+        "500":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+          description: "An unexpected failure: \"Something went wrong. Please try\
+            \ again.\""
+        "503":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+          description: "An external service, such as Firestore, couldn't be reached:\
+            \ \"Couldn't reach an external service. Please try again in a moment.\""
+      summary: Change a document
+      tags:
+      - Documents
   /api/newsletter:
     post:
       description: "Public: no session needed. The address is trimmed and lower-cased;\
@@ -1208,6 +1472,50 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/ClientResponse"
+    DocumentChangesRequest:
+      type: object
+      properties:
+        name:
+          type: string
+        values:
+          type: object
+          additionalProperties:
+            type: string
+    DocumentEnvelope:
+      type: object
+      properties:
+        document:
+          $ref: "#/components/schemas/DocumentResponse"
+    DocumentResponse:
+      type: object
+      properties:
+        createdAt:
+          type: integer
+          format: int64
+        id:
+          type: string
+          example: doc_mhx2k1q8_4f9a2c
+        name:
+          type: string
+        templateId:
+          type: string
+          example: classic-invoice
+        templateSnapshot:
+          $ref: "#/components/schemas/SnapshotResponse"
+        updatedAt:
+          type: integer
+          format: int64
+        values:
+          type: object
+          additionalProperties:
+            type: string
+    DocumentsResponse:
+      type: object
+      properties:
+        documents:
+          type: array
+          items:
+            $ref: "#/components/schemas/DocumentResponse"
     EmailRequest:
       type: object
       properties:
@@ -1266,6 +1574,24 @@ components:
       - email
       - name
       - phone
+    NewDocumentRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          example: Invoice for Acme
+        templateId:
+          type: string
+          example: classic-invoice
+          minLength: 1
+        values:
+          type: object
+          additionalProperties:
+            type: string
+      required:
+      - name
+      - templateId
+      - values
     OkResponse:
       type: object
       properties:
@@ -1375,6 +1701,47 @@ components:
       - displayName
       - email
       - password
+    SnapshotFieldResponse:
+      type: object
+      properties:
+        key:
+          type: string
+        label:
+          type: string
+        placeholder:
+          type: string
+        type:
+          type: string
+          example: text
+    SnapshotResponse:
+      type: object
+      properties:
+        description:
+          type: string
+        documentType:
+          type: string
+          example: invoice
+        fields:
+          type: array
+          items:
+            $ref: "#/components/schemas/SnapshotFieldResponse"
+        name:
+          type: string
+        style:
+          $ref: "#/components/schemas/SnapshotStyleResponse"
+    SnapshotStyleResponse:
+      type: object
+      properties:
+        description:
+          type: string
+        id:
+          type: string
+          example: classic
+        name:
+          type: string
+        tier:
+          type: string
+          example: free
     StyleResponse:
       type: object
       properties:

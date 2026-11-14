@@ -216,6 +216,8 @@ When adding a setting, add it to `.env.example` and to the table above.
 | `PATCH /api/clients/{clientId}`, `DELETE /api/clients/{clientId}` | Signed in, CSRF token | Change some of a client's details, or remove it (`204` also when it isn't there) |
 | `GET /api/templates`, `GET /api/templates/{id}` | Signed in | The template catalog, optionally by `styleId` or `tier`, and one template |
 | `GET /api/saved-templates`, `POST /api/saved-templates`, `DELETE /api/saved-templates/{templateId}` | Signed in (CSRF token to change) | The user's saved templates: list, save (within the plan; at most two for a free account) and remove |
+| `GET /api/documents`, `POST /api/documents` | Signed in (CSRF token to make one) | The user's documents, optionally by `templateId`, and making one from a template |
+| `GET /api/documents/{id}`, `PATCH /api/documents/{id}`, `DELETE /api/documents/{id}` | Signed in (CSRF token to change) | One document: read, change its name or values, remove (`204` also when it isn't there) |
 | `/swagger-ui.html`, `/v3/api-docs` | `dev` only | Swagger UI and the API description. Elsewhere they don't exist and answer `401`. |
 | Everything else | Denied (`401`) | Opened explicitly as features are added |
 

@@ -49,6 +49,13 @@ class TemplatesIT {
 
     @BeforeEach
     void writeTheCatalog() {
+        // The catalog is shared by every test class, so other tests' entries are removed first.
+        for (String collection : List.of("templateStyles", "templates")) {
+            for (var entry :
+                    FirestoreCalls.await(firestore.collection(collection).get()).getDocuments()) {
+                FirestoreCalls.await(entry.getReference().delete());
+            }
+        }
         style("classic", "free", 1L, true);
         style("modern", "silver", 2L, true);
         style("brutalist", "gold", 3L, true);
