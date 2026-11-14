@@ -75,7 +75,7 @@ class ApplicationIT {
     @ValueSource(
             strings = {
                 "/",
-                "/api/documents",
+                "/api/notifications",
                 "/api/auth/me",
                 "/actuator/env",
                 "/actuator/beans",
@@ -100,7 +100,7 @@ class ApplicationIT {
 
     @Test
     void anAnonymousRequestGetsTheUnauthorisedBodyTheWebAppExpects() {
-        assertThat(mvc.get().uri("/api/documents"))
+        assertThat(mvc.get().uri("/api/notifications"))
                 .hasStatus(HttpStatus.UNAUTHORIZED)
                 .bodyJson()
                 .isStrictlyEqualTo("{\"error\":\"Unauthorised.\"}");
@@ -109,7 +109,7 @@ class ApplicationIT {
     @Test
     @WithMockUser
     void aSignedInUserIsForbiddenFromEndpointsThatArentOpenYet() {
-        assertThat(mvc.get().uri("/api/documents"))
+        assertThat(mvc.get().uri("/api/notifications"))
                 .hasStatus(HttpStatus.FORBIDDEN)
                 .bodyJson()
                 .isStrictlyEqualTo("{\"error\":\"Forbidden.\"}");
