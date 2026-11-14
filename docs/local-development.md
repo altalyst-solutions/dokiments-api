@@ -142,8 +142,8 @@ example `http://localhost:8080`, or your `PORT`) and register that callback addr
 The account is still created in the Auth emulator, not in a real Firebase project. The integration tests don't need
 to reach Google: they replace its token endpoint with a stand-in (`GoogleSignInIT`).
 
-The local emulator starts without a template catalog, so `GET /api/templates` answers empty lists until you add
-one. The catalog is two collections, `templateStyles` and `templates`; see [Template catalog](#template-catalog).
+The local emulator starts without a template catalog, so `GET /api/templates` answers empty lists until you add it
+with `scripts/seed-local-catalog.sh` (see [Template catalog](#template-catalog)).
 
 Endpoints that aren't built yet answer `401`. To see what a request stored, read the emulator directly, as in
 [Looking at the data](#looking-at-the-data).
@@ -300,8 +300,20 @@ curl -s "localhost:8085/v1/projects/demo-dokiments/databases/(default)/documents
 
 ### Template catalog
 
-The templates the web app offers live in Firestore, in two collections that the web app's seed script fills. The local
-emulator starts without them. Add a style and a template on the Emulator UI's **Firestore** page:
+The templates the web app offers live in Firestore, in the `templateStyles` and `templates` collections, which the
+local emulator starts without. Fill them, with the emulators running (`./gradlew bootRun`, or `docker compose up -d`):
+
+```bash
+scripts/seed-local-catalog.sh
+```
+
+It writes the 4 styles and 60 templates the web app offers (every style with every document type, such as
+`classic-invoice`), in the shape and order they have in production. They are kept with the rest of the local data.
+Running it again writes the same documents again and undoes local changes to them; other data is left alone.
+
+The catalog comes from `scripts/local-catalog.json`: each style, and each document type with its form fields, once.
+When the web app's catalog changes, update that file to match. To change the local catalog by hand, edit the
+documents on the Emulator UI's **Firestore** page:
 
 | Collection, document ID | Fields |
 | --- | --- |

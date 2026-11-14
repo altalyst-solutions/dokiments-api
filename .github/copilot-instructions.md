@@ -34,6 +34,7 @@ memory for names: check the jars in the Gradle cache or the official docs before
 | Build the image | `docker build -t dokiments-api .` |
 | Rewrite `docs/openapi.yaml` after an intended API change (needs Docker) | `./gradlew updateOpenApi` |
 | IntelliJ inspections (needs IntelliJ IDEA) | `scripts/inspect.sh` |
+| Fill the local emulator with the template catalog (emulators running) | `scripts/seed-local-catalog.sh` |
 
 ## Finding and fixing problems
 
