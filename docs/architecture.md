@@ -86,6 +86,21 @@ Each layer gets its own tests:
 An endpoint stays closed (`401`) until it is opened in `platform/security/SecurityConfig`. A public endpoint that
 uses no session is also exempted from CSRF there, because the web app sends no CSRF token.
 
+### A signed-in user's own data
+
+The `clients` module is the reference for endpoints that work on the signed-in user's own data:
+
+- The controller gets the signed-in user from `@AuthenticationPrincipal SignedInUser user`. `SignedInUser` (in
+  `shared`) carries only the user's ID; the session and its tokens stay inside `auth`.
+- Every use case and port takes that ID, and the Firestore adapter builds every path from it
+  (`users/{uid}/clients/{clientId}`). A client of someone else is then simply not there, and answers `404` exactly
+  like one that doesn't exist.
+- An ID from the URL is checked before it reaches Firestore (`ClientId.parse`): one that no document could have is
+  treated as not found.
+- A change reads the document first, then writes only the fields sent with `update()`, which never creates a
+  document. Two changes to different fields at once both stay.
+- Older documents are read leniently, with a missing field read as empty, while everything written follows the rules.
+
 ## How it is enforced
 
 - `HexagonalArchitectureTest` (ArchUnit): layer dependencies, which libraries each layer may use (HTTP clients only in

@@ -80,7 +80,8 @@ Each direct sub-package of `com.dokiments` is a module, verified by Spring Modul
 
 - Feature modules: `auth`, `users`, `documents`, `sharing`, `clients`, `templates`, `notifications`, `feedback`,
   `promo`, `newsletter`.
-- `shared`: small value types every module may use (for example `UserId`, `Email`). Keep it minimal.
+- `shared`: small types every module may use (for example `SignedInUser`, `EmailAddresses`, `TypedText`). Keep it
+  minimal.
 - `platform`: technical setup only (security, configuration, error handling, Firestore, HTTP clients, email,
   observability). It must never depend on a feature module.
 
@@ -146,8 +147,12 @@ Rules, enforced by `HexagonalArchitectureTest` (ArchUnit) and `ModularityTest` (
 ## Auth and sessions
 
 - Who sent a request comes from `auth.adapter.in.web.SessionAuthenticator`, which implements
-  `platform.security.RequestAuthenticator`. A controller reads the signed-in session with
-  `@AuthenticationPrincipal AuthSession`; never read cookies or the HTTP session yourself.
+  `platform.security.RequestAuthenticator`. A controller in `auth` reads the signed-in session with
+  `@AuthenticationPrincipal AuthSession`; a controller in another module reads only the user's ID, with
+  `@AuthenticationPrincipal SignedInUser` (`shared`). Never read cookies or the HTTP session yourself.
+- A user's own data is reached through a path built from `SignedInUser.uid()`, never from an ID in the request
+  alone (for example `users/{uid}/clients/{clientId}`), so someone else's data answers `404` like data that doesn't
+  exist. The `clients` module is the reference for such endpoints.
 - A session ends one day after sign-in (`AuthSession.MAX_AGE`), and refreshing the Firebase tokens must never move
   that. Only signing in and signing up start a session (`SessionStore.start`, which also issues a new session ID).
 - The session is stored as JSON text, never as Java objects, so a change in its shape signs people out instead of

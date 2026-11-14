@@ -212,6 +212,8 @@ When adding a setting, add it to `.env.example` and to the table above.
 | `GET /api/auth/me` | Public | The signed-in user, or `401` with the body `null` |
 | `POST /api/auth/forgot-password` | Public, CSRF token | Sends a password reset link |
 | `POST /api/auth/update-password`, `reauthenticate`, `update-profile`, `send-verification`, `refresh-verification` (all under `/api/auth/`) | Signed in, CSRF token | Changes to one's own account |
+| `GET /api/clients`, `POST /api/clients` | Signed in (CSRF token to add) | The user's clients: list, newest first, and add |
+| `PATCH /api/clients/{clientId}`, `DELETE /api/clients/{clientId}` | Signed in, CSRF token | Change some of a client's details, or remove it (`204` also when it isn't there) |
 | `/swagger-ui.html`, `/v3/api-docs` | `dev` only | Swagger UI and the API description. Elsewhere they don't exist and answer `401`. |
 | Everything else | Denied (`401`) | Opened explicitly as features are added |
 
