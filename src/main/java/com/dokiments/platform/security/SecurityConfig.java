@@ -92,6 +92,9 @@ class SecurityConfig {
                         .authenticated()
                         .requestMatchers(HttpMethod.DELETE, "/api/documents/*")
                         .authenticated()
+                        // Feedback from the signed-in user.
+                        .requestMatchers(HttpMethod.POST, "/api/feedback")
+                        .authenticated()
                         .anyRequest()
                         .denyAll())
                 // Cross-site request forgery tricks a signed-in browser into sending a request with its cookies.
