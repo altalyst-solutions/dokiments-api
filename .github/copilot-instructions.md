@@ -152,8 +152,8 @@ Rules, enforced by `HexagonalArchitectureTest` (ArchUnit) and `ModularityTest` (
 
 - Who sent a request comes from `auth.adapter.in.web.SessionAuthenticator`, which implements
   `platform.security.RequestAuthenticator`. A controller in `auth` reads the signed-in session with
-  `@AuthenticationPrincipal AuthSession`; a controller in another module reads only the user's ID, with
-  `@AuthenticationPrincipal SignedInUser` (`shared`). Never read cookies or the HTTP session yourself.
+  `@AuthenticationPrincipal AuthSession`; a controller in another module reads only the user's ID, address
+  and name, with `@AuthenticationPrincipal SignedInUser` (`shared`). Never read cookies or the HTTP session yourself.
 - A user's own data is reached through a path built from `SignedInUser.uid()`, never from an ID in the request
   alone (for example `users/{uid}/clients/{clientId}`), so someone else's data answers `404` like data that doesn't
   exist. The `clients` module is the reference for such endpoints.
