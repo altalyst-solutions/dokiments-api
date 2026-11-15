@@ -218,6 +218,7 @@ When adding a setting, add it to `.env.example` and to the table above.
 | `GET /api/saved-templates`, `POST /api/saved-templates`, `DELETE /api/saved-templates/{templateId}` | Signed in (CSRF token to change) | The user's saved templates: list, save (within the plan; at most two for a free account) and remove |
 | `GET /api/documents`, `POST /api/documents` | Signed in (CSRF token to make one) | The user's documents, optionally by `templateId`, and making one from a template |
 | `GET /api/documents/{id}`, `PATCH /api/documents/{id}`, `DELETE /api/documents/{id}` | Signed in (CSRF token to change) | One document: read, change its name or values, remove (`204` also when it isn't there) |
+| `POST /api/feedback` | Signed in, CSRF token | Feedback or a problem report, at most once a minute per account (`429` otherwise). Read by an administrator in Firestore (`feedback`); there is no endpoint to read it. |
 | `/swagger-ui.html`, `/v3/api-docs` | `dev` only | Swagger UI and the API description. Elsewhere they don't exist and answer `401`. |
 | Everything else | Denied (`401`) | Opened explicitly as features are added |
 

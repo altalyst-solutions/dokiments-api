@@ -1049,6 +1049,69 @@ paths:
       summary: Change a document
       tags:
       - Documents
+  /api/feedback:
+    post:
+      description: "The message is trimmed and 1 to 2000 characters; path, the page\
+        \ it was sent from, at most 512. Who sent it comes from the session, never\
+        \ from the body. An account may send feedback once a minute."
+      operationId: sendFeedback
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/FeedbackRequest"
+        required: true
+      responses:
+        "201":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/FeedbackEnvelope"
+          description: Kept
+        "400":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+          description: The body isn't valid JSON ("Request body must be valid JSON.")
+            or doesn't match what the endpoint expects ("Invalid request body.").
+        "401":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+          description: Not signed in
+        "403":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+          description: "The CSRF token is missing or wrong: send the value of the\
+            \ XSRF-TOKEN cookie in the X-XSRF-TOKEN header (\"Forbidden.\")."
+        "429":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+          description: Sent less than a minute after the last ("Thanks — we just received
+            your last message. Please wait a moment before sending another.")
+        "500":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+          description: "An unexpected failure: \"Something went wrong. Please try\
+            \ again.\""
+        "503":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+          description: "An external service, such as Firestore, couldn't be reached:\
+            \ \"Couldn't reach an external service. Please try again in a moment.\""
+      summary: Send feedback
+      tags:
+      - Feedback
   /api/newsletter:
     post:
       description: "Public: no session needed. The address is trimmed and lower-cased;\
@@ -1536,6 +1599,52 @@ components:
           description: A message safe to show to the user.
       required:
       - error
+    FeedbackEnvelope:
+      type: object
+      properties:
+        feedback:
+          $ref: "#/components/schemas/FeedbackResponse"
+    FeedbackRequest:
+      type: object
+      properties:
+        message:
+          type: string
+          example: The export button does nothing.
+        path:
+          type: string
+          example: /my-documents
+        type:
+          type: string
+          enum:
+          - feedback
+          - problem
+      required:
+      - message
+      - type
+    FeedbackResponse:
+      type: object
+      properties:
+        createdAt:
+          type: integer
+          format: int64
+        displayName:
+          type: string
+        email:
+          type: string
+        id:
+          type: string
+          example: feedback_mhx2k1q8_4f9a2c
+        message:
+          type: string
+        path:
+          type: string
+        type:
+          type: string
+          enum:
+          - feedback
+          - problem
+        uid:
+          type: string
     FieldResponse:
       type: object
       properties:

@@ -34,10 +34,20 @@ public record AuthSession(UserProfile user, boolean emailVerified, AuthTokens to
         return new AuthSession(user, emailVerified, tokens, now.plus(MAX_AGE));
     }
 
-    /** The signed-in user's ID, which is all that other modules see of the session. */
+    /** The signed-in user's ID. With the address and name, it is all that other modules see of the session. */
     @Override
     public String uid() {
         return user.uid();
+    }
+
+    @Override
+    public String email() {
+        return user.email();
+    }
+
+    @Override
+    public String displayName() {
+        return user.displayName();
     }
 
     /** Whether the session has reached its end and must no longer be accepted. */

@@ -91,7 +91,7 @@ uses no session is also exempted from CSRF there, because the web app sends no C
 The `clients` module is the reference for endpoints that work on the signed-in user's own data:
 
 - The controller gets the signed-in user from `@AuthenticationPrincipal SignedInUser user`. `SignedInUser` (in
-  `shared`) carries only the user's ID; the session and its tokens stay inside `auth`.
+  `shared`) carries only the user's ID, address and name; the session and its tokens stay inside `auth`.
 - Every use case and port takes that ID, and the Firestore adapter builds every path from it
   (`users/{uid}/clients/{clientId}`). A client of someone else is then simply not there, and answers `404` exactly
   like one that doesn't exist.
