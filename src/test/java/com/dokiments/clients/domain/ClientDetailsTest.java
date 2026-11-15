@@ -10,7 +10,7 @@ class ClientDetailsTest {
     @Test
     void everyFieldIsTrimmedAsTheWebAppTrimsIt() {
         var details = ClientDetails.of(
-                " 1 Main St ", " C123 ", " Acme ", " Jane@Acme.example ", "\uFEFFJane\u00A0", " ID1 ", " 555 ");
+                " 1 Main St ", "\u00A0C123 ", " Acme ", " Jane@Acme.example ", "\uFEFFJane\u00A0", " ID1 ", " 555 ");
 
         assertThat(details)
                 .isEqualTo(new ClientDetails("1 Main St", "C123", "Acme", "Jane@Acme.example", "Jane", "ID1", "555"));

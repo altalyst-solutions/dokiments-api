@@ -5,6 +5,9 @@ import com.dokiments.auth.application.port.in.SignIn.SignInCommand;
 import com.dokiments.auth.application.port.in.SignUp;
 import com.dokiments.auth.application.port.in.SignUp.SignUpCommand;
 import com.dokiments.auth.domain.AuthSession;
+import com.dokiments.promo.PromoAtSignIn;
+import com.dokiments.promo.PromoOutcome;
+import com.fasterxml.jackson.annotation.JsonInclude;
 import io.swagger.v3.oas.annotations.Operation;
 import io.swagger.v3.oas.annotations.media.Content;
 import io.swagger.v3.oas.annotations.media.Schema;
@@ -38,11 +41,13 @@ class AuthController {
     private final SignUp signUp;
     private final SignIn signIn;
     private final SessionStore sessions;
+    private final PromoAtSignIn promo;
 
-    AuthController(SignUp signUp, SignIn signIn, SessionStore sessions) {
+    AuthController(SignUp signUp, SignIn signIn, SessionStore sessions, PromoAtSignIn promo) {
         this.signUp = signUp;
         this.signIn = signIn;
         this.sessions = sessions;
+        this.promo = promo;
     }
 
     @PostMapping("/api/auth/sign-up")
@@ -50,8 +55,9 @@ class AuthController {
             summary = "Create an account and sign in",
             description = "Creates the Firebase account and its profile (role free), asks Firebase to send a"
                     + " verification email, and starts a session: the dokiments-session cookie, and the readable"
-                    + " dokiments-session-expiry cookie with the session's end in milliseconds. The promo code is"
-                    + " accepted but not redeemed yet.")
+                    + " dokiments-session-expiry cookie with the session's end in milliseconds. A promo code is"
+                    + " redeemed once the account exists, and promo says what happened; a promo problem never fails"
+                    + " the sign-up.")
     @ApiResponse(responseCode = "200", description = "Signed up and signed in")
     @ApiResponse(
             responseCode = "401",
@@ -61,15 +67,18 @@ class AuthController {
     AuthResponse signUp(
             @Valid @RequestBody SignUpRequest body, HttpServletRequest request, HttpServletResponse response) {
         AuthSession session = signUp.signUp(new SignUpCommand(body.displayName(), body.email(), body.password()));
+        // Only now that the account exists, so a code can't be redeemed for an account the caller doesn't own.
+        var outcome = promo.redeemAtSignIn(session.uid(), body.promoCode());
         sessions.start(request, response, session);
-        return new AuthResponse(AuthUserResponse.of(session));
+        return new AuthResponse(outcome.map(PromoOutcome::value).orElse(null), AuthUserResponse.of(session));
     }
 
     @PostMapping("/api/auth/sign-in")
     @Operation(
             summary = "Sign in",
             description = "Checks the email address and password with Firebase and starts a session, as for sign-up."
-                    + " The password has no maximum length. The promo code is accepted but not redeemed yet.")
+                    + " The password has no maximum length. A promo code is redeemed once the password is"
+                    + " accepted, as for sign-up.")
     @ApiResponse(responseCode = "200", description = "Signed in")
     @ApiResponse(
             responseCode = "401",
@@ -79,8 +88,10 @@ class AuthController {
     AuthResponse signIn(
             @Valid @RequestBody SignInRequest body, HttpServletRequest request, HttpServletResponse response) {
         AuthSession session = signIn.signIn(new SignInCommand(body.email(), body.password()));
+        // Only now that the password is accepted, so a code can't be redeemed for an account the caller can't prove.
+        var outcome = promo.redeemAtSignIn(session.uid(), body.promoCode());
         sessions.start(request, response, session);
-        return new AuthResponse(AuthUserResponse.of(session));
+        return new AuthResponse(outcome.map(PromoOutcome::value).orElse(null), AuthUserResponse.of(session));
     }
 
     @PostMapping("/api/auth/sign-out")
@@ -131,7 +142,21 @@ class AuthController {
             @NotNull String password,
             @Nullable @Size(max = 64) String promoCode) {}
 
-    record AuthResponse(AuthUserResponse user) {}
+    record AuthResponse(
+            @JsonInclude(JsonInclude.Include.NON_NULL)
+            @Schema(
+                    description = "What happened to the promo code given with signing up or in; left out when"
+                            + " none was given",
+                    allowableValues = {"applied", "already_redeemed", "invalid", "failed"})
+            @Nullable String promo,
+
+            AuthUserResponse user) {
+
+        /** An answer without a promo code, such as for {@code me}. */
+        AuthResponse(AuthUserResponse user) {
+            this(null, user);
+        }
+    }
 
     /** Always {@code {"ok": true}}: signing out can't fail, whatever state the session was in. */
     @SuppressWarnings("SameParameterValue")

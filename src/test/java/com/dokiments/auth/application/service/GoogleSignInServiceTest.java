@@ -6,6 +6,7 @@ import static org.assertj.core.api.Assertions.assertThatThrownBy;
 import com.dokiments.auth.application.port.in.SignInWithGoogle;
 import com.dokiments.auth.application.port.out.GoogleOAuth;
 import com.dokiments.auth.application.port.out.PendingSignIns;
+import com.dokiments.auth.application.port.out.PendingSignIns.PendingSignIn;
 import com.dokiments.auth.domain.ReturnPath;
 import com.dokiments.users.AuthProvider;
 import java.net.URI;
@@ -25,15 +26,15 @@ class GoogleSignInServiceTest {
 
     private static final Instant NOW = Instant.parse("2026-11-13T09:00:00Z");
 
-    private final Map<String, ReturnPath> pending = new HashMap<>();
+    private final Map<String, PendingSignIn> pending = new HashMap<>();
     private final PendingSignIns store = new PendingSignIns() {
         @Override
-        public void save(String state, ReturnPath returnPath) {
-            pending.put(state, returnPath);
+        public void save(String state, PendingSignIn signIn) {
+            pending.put(state, signIn);
         }
 
         @Override
-        public Optional<ReturnPath> take(String state) {
+        public Optional<PendingSignIn> take(String state) {
             return Optional.ofNullable(pending.remove(state));
         }
     };
@@ -65,23 +66,34 @@ class GoogleSignInServiceTest {
 
     @Test
     void aStartRemembersWhereToGoUnderARandomState() {
-        var started = service.start("/my-documents");
+        var started = service.start("/my-documents", null);
 
         assertThat(started.authorizationUrl().toString()).endsWith("state=" + started.state());
-        assertThat(pending).containsEntry(started.state(), new ReturnPath("/my-documents"));
-        assertThat(service.start(null).state()).isNotEqualTo(started.state());
+        assertThat(pending).containsEntry(started.state(), new PendingSignIn(new ReturnPath("/my-documents"), null));
+        assertThat(service.start(null, null).state()).isNotEqualTo(started.state());
+    }
+
+    @Test
+    void aPromoCodeFromTheStartReachesTheFinishCutToSixtyFourCharacters() {
+        var withCode = service.start(null, "ViSHDOK2026!");
+        var longCode = service.start(null, "x".repeat(100));
+        var emptyCode = service.start(null, "");
+
+        assertThat(service.finish(withCode.state(), "a").promoCode()).isEqualTo("ViSHDOK2026!");
+        assertThat(service.finish(longCode.state(), "b").promoCode()).hasSize(64);
+        assertThat(service.finish(emptyCode.state(), "c").promoCode()).isNull();
     }
 
     @Test
     void withoutGoogleSettingsTheStartFails() {
         configured = false;
 
-        assertThatThrownBy(() -> service.start(null)).isInstanceOf(SignInWithGoogle.Failed.class);
+        assertThatThrownBy(() -> service.start(null, null)).isInstanceOf(SignInWithGoogle.Failed.class);
     }
 
     @Test
     void aFinishedSignInStartsADayLongGoogleSession() {
-        var started = service.start("/my-documents");
+        var started = service.start("/my-documents", null);
 
         var finished = service.finish(started.state(), "the-code");
 
@@ -93,7 +105,7 @@ class GoogleSignInServiceTest {
 
     @Test
     void aStateCanOnlyFinishOneSignIn() {
-        var started = service.start(null);
+        var started = service.start(null, null);
         service.finish(started.state(), "the-code");
 
         assertThatThrownBy(() -> service.finish(started.state(), "the-code"))
@@ -108,7 +120,7 @@ class GoogleSignInServiceTest {
     @Test
     void aCodeGoogleRefusesFails() {
         googleRefuses = true;
-        var started = service.start(null);
+        var started = service.start(null, null);
 
         assertThatThrownBy(() -> service.finish(started.state(), "old-code"))
                 .isInstanceOf(SignInWithGoogle.Failed.class)

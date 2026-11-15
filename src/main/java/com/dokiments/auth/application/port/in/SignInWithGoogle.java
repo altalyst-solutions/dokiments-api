@@ -18,9 +18,10 @@ public interface SignInWithGoogle {
      * Starts a sign-in.
      *
      * @param next where to go afterwards, as asked for; anything but a path on this site becomes the dashboard
+     * @param promoCode a promo code given on the sign-in page, to redeem once the sign-in completes, or {@code null}
      * @throws Failed if Google sign-in isn't set up here
      */
-    Started start(@Nullable String next);
+    Started start(@Nullable String next, @Nullable String promoCode);
 
     /**
      * Completes a sign-in, once the {@code state} Google sent back is known to match the one this browser started with.
@@ -43,8 +44,12 @@ public interface SignInWithGoogle {
      *
      * @param session the new session
      * @param returnPath where to send the browser
+     * @param promoCode the promo code given at the start, to redeem now, or {@code null}
      */
-    record Finished(AuthSession session, ReturnPath returnPath) {}
+    record Finished(
+            AuthSession session,
+            ReturnPath returnPath,
+            @Nullable String promoCode) {}
 
     /** The sign-in can't go ahead. The user is sent back to the sign-in page; the reason is logged only. */
     final class Failed extends RuntimeException {

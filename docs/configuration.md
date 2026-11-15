@@ -137,7 +137,8 @@ Signing in with Google takes two requests from the browser, both plain page load
 
 1. `GET /api/auth/google/start?next=/some/page` redirects to Google. It sets the HttpOnly `dokiments-oauth-state`
    cookie (`Path=/api/auth/google`, ten minutes) holding a random value that Google returns with the person. Where to
-   land afterwards is kept in Redis under that value, also for ten minutes, and can be used once.
+   land afterwards, and any promo code typed on the sign-in page, are kept in Redis under that value, also for ten
+   minutes, and can be used once.
 2. Google sends the browser to `GET /api/auth/google/callback`. When the returned value matches the cookie, the
    application exchanges Google's code for a Google ID token, signs in to Firebase with it and starts a session, as
    signing in does. It then redirects to the page asked for: only a path on this site, otherwise `/dashboard`.
@@ -207,8 +208,8 @@ When adding a setting, add it to `.env.example` and to the table above.
 | `/actuator/health` | Public | Overall health, including Redis and Firestore. Also `/actuator/health/liveness` and `/actuator/health/readiness` for container probes. |
 | `/actuator/info` | Public | Version, Git commit and Java version |
 | `POST /api/newsletter` | Public | Newsletter sign-up from the website |
-| `POST /api/auth/sign-up`, `POST /api/auth/sign-in`, `POST /api/auth/sign-out` | Public, CSRF token | Signing up, in and out (see [Sessions](#sessions)) |
-| `GET /api/auth/google/start`, `GET /api/auth/google/callback` | Public | Signing in with Google (see [Google sign-in](#google-sign-in)) |
+| `POST /api/auth/sign-up`, `POST /api/auth/sign-in`, `POST /api/auth/sign-out` | Public, CSRF token | Signing up, in and out (see [Sessions](#sessions)). A `promoCode` given with signing up or in is redeemed once the account is proven, and the answer's `promo` says what happened (`applied`, `already_redeemed`, `invalid` or `failed`); it never fails the sign-in. |
+| `GET /api/auth/google/start`, `GET /api/auth/google/callback` | Public | Signing in with Google (see [Google sign-in](#google-sign-in)). A `promoCode` given at the start is redeemed at the callback, and the landing page gets `?promo=` with what happened. |
 | `GET /api/auth/me` | Public | The signed-in user, or `401` with the body `null` |
 | `POST /api/auth/forgot-password` | Public, CSRF token | Sends a password reset link |
 | `POST /api/auth/update-password`, `reauthenticate`, `update-profile`, `send-verification`, `refresh-verification` (all under `/api/auth/`) | Signed in, CSRF token | Changes to one's own account |
@@ -219,6 +220,7 @@ When adding a setting, add it to `.env.example` and to the table above.
 | `GET /api/documents`, `POST /api/documents` | Signed in (CSRF token to make one) | The user's documents, optionally by `templateId`, and making one from a template |
 | `GET /api/documents/{id}`, `PATCH /api/documents/{id}`, `DELETE /api/documents/{id}` | Signed in (CSRF token to change) | One document: read, change its name or values, remove (`204` also when it isn't there) |
 | `POST /api/feedback` | Signed in, CSRF token | Feedback or a problem report, at most once a minute per account (`429` otherwise). Read by an administrator in Firestore (`feedback`); there is no endpoint to read it. |
+| `GET /api/promo-redemptions`, `POST /api/promo-redemptions` | Signed in (CSRF token to redeem) | The promo codes the account has redeemed, and redeeming one, at most once per account (`409` again, `400 Invalid promo code.` for a wrong one) |
 | `/swagger-ui.html`, `/v3/api-docs` | `dev` only | Swagger UI and the API description. Elsewhere they don't exist and answer `401`. |
 | Everything else | Denied (`401`) | Opened explicitly as features are added |
 

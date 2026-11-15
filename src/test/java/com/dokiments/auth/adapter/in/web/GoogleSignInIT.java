@@ -24,6 +24,7 @@ import org.junit.jupiter.api.BeforeAll;
 import org.junit.jupiter.api.Test;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
+import org.springframework.data.redis.core.StringRedisTemplate;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.test.context.DynamicPropertyRegistry;
@@ -57,6 +58,9 @@ class GoogleSignInIT {
 
     @Autowired
     private Firestore firestore;
+
+    @Autowired
+    private StringRedisTemplate redis;
 
     @BeforeAll
     static void startGoogle() throws IOException {
@@ -228,7 +232,46 @@ class GoogleSignInIT {
         assertSignInFailed(callback("refused", another, another));
     }
 
+    // Promo codes
+
+    @Test
+    void aPromoCodeFromTheStartIsRedeemedAndItsOutcomeAddedToTheLandingPage() {
+        nextGoogleUser = new String[] {"sub-" + UUID.randomUUID(), newAddress()};
+        String state = startWithPromo("/my-documents?tab=shared", "vishdok2026!");
+
+        MvcTestResult landed = callback("the-code", state, state);
+
+        assertThat(location(landed)).isEqualTo("/my-documents?tab=shared&promo=applied");
+
+        String again = startWithPromo(null, "ViSHDOK2026!");
+        assertThat(location(callback("the-code", again, again))).isEqualTo("/dashboard?promo=already_redeemed");
+        String wrong = startWithPromo(null, "nope");
+        assertThat(location(callback("the-code", wrong, wrong))).isEqualTo("/dashboard?promo=invalid");
+        String none = start(null);
+        assertThat(location(callback("the-code", none, none))).isEqualTo("/dashboard");
+    }
+
+    @Test
+    void aSignInStartedBeforePromoCodesWereKeptStillCompletes() {
+        nextGoogleUser = new String[] {"sub-" + UUID.randomUUID(), newAddress()};
+        String state = start(null);
+        // A sign-in saved by the previous version holds only its return path, as plain text.
+        redis.opsForValue().set("dokiments:google-sign-in:" + state, "/my-documents");
+
+        assertThat(location(callback("the-code", state, state))).isEqualTo("/my-documents");
+    }
+
     // Helpers
+
+    /** Starts a sign-in with a promo code typed on the sign-in page, and returns its state. */
+    private String startWithPromo(@Nullable String next, String promoCode) {
+        var uri = "/api/auth/google/start?promoCode=" + promoCode + (next == null ? "" : "&next=" + next);
+        var started = mvc.get().uri(uri).exchange();
+        return UriComponentsBuilder.fromUriString(location(started))
+                .build()
+                .getQueryParams()
+                .getFirst("state");
+    }
 
     /** Starts a sign-in and returns its state, as the browser would carry it back. */
     private String start(@Nullable String next) {

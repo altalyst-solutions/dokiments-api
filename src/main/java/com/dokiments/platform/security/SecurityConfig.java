@@ -95,6 +95,11 @@ class SecurityConfig {
                         // Feedback from the signed-in user.
                         .requestMatchers(HttpMethod.POST, "/api/feedback")
                         .authenticated()
+                        // The signed-in account's promo codes.
+                        .requestMatchers(HttpMethod.GET, "/api/promo-redemptions")
+                        .authenticated()
+                        .requestMatchers(HttpMethod.POST, "/api/promo-redemptions")
+                        .authenticated()
                         .anyRequest()
                         .denyAll())
                 // Cross-site request forgery tricks a signed-in browser into sending a request with its cookies.
