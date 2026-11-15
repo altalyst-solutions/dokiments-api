@@ -12,7 +12,7 @@ class FeedbackRulesTest {
 
     @Test
     void theMessageAndPathAreTrimmedAndThePathMayBeLeftOut() {
-        assertThat(FeedbackMessage.of("  It broke \n", " /my-documents ", "problem"))
+        assertThat(FeedbackMessage.of("\u00A0 It broke \n", " /my-documents ", "problem"))
                 .isEqualTo(new FeedbackMessage("It broke", "/my-documents", FeedbackType.PROBLEM));
         assertThat(FeedbackMessage.of("Nice", null, "feedback").path()).isEmpty();
     }
