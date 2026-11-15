@@ -60,7 +60,9 @@ paths:
       description: "Where Google sends the browser back. Starts the session (the dokiments-session\
         \ and dokiments-session-expiry cookies, as for sign-in) and redirects to the\
         \ page asked for at the start. The first Google sign-in creates the account;\
-        \ one with the address of a password account signs in to that account."
+        \ one with the address of a password account signs in to that account. When\
+        \ a promo code was given at the start, the page gets ?promo= with what happened\
+        \ to it: applied, already_redeemed, invalid or failed."
       operationId: callback
       parameters:
       - in: query
@@ -111,13 +113,20 @@ paths:
   /api/auth/google/start:
     get:
       description: "Redirects to Google's sign-in page. next is where to land afterwards,\
-        \ a path on this site (the dashboard otherwise). The promo code is accepted\
-        \ but not redeemed yet."
+        \ a path on this site (the dashboard otherwise). A promo code is kept with\
+        \ the sign-in and redeemed once it completes."
       operationId: start
       parameters:
       - description: "Where to land afterwards, for example /my-documents"
         in: query
         name: next
+        required: false
+        schema:
+          type: string
+          default: ""
+      - description: A promo code typed on the sign-in page
+        in: query
+        name: promoCode
         required: false
         schema:
           type: string
@@ -326,8 +335,8 @@ paths:
   /api/auth/sign-in:
     post:
       description: "Checks the email address and password with Firebase and starts\
-        \ a session, as for sign-up. The password has no maximum length. The promo\
-        \ code is accepted but not redeemed yet."
+        \ a session, as for sign-up. The password has no maximum length. A promo code\
+        \ is redeemed once the password is accepted, as for sign-up."
       operationId: signIn
       requestBody:
         content:
@@ -422,7 +431,8 @@ paths:
       description: "Creates the Firebase account and its profile (role free), asks\
         \ Firebase to send a verification email, and starts a session: the dokiments-session\
         \ cookie, and the readable dokiments-session-expiry cookie with the session's\
-        \ end in milliseconds. The promo code is accepted but not redeemed yet."
+        \ end in milliseconds. A promo code is redeemed once the account exists, and\
+        \ promo says what happened; a promo problem never fails the sign-up."
       operationId: signUp
       requestBody:
         content:
@@ -1155,6 +1165,102 @@ paths:
       summary: Subscribe to the newsletter
       tags:
       - Newsletter
+  /api/promo-redemptions:
+    get:
+      description: "Every promotion the account has redeemed, also ones that have\
+        \ ended. The web app picks out the one it shows by promoId."
+      operationId: listPromoRedemptions
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RedemptionsResponse"
+          description: "The redemptions, an empty list for an account with none"
+        "401":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+          description: Not signed in
+        "500":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+          description: "An unexpected failure: \"Something went wrong. Please try\
+            \ again.\""
+        "503":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+          description: "An external service, such as Firestore, couldn't be reached:\
+            \ \"Couldn't reach an external service. Please try again in a moment.\""
+      summary: List the redeemed promo codes
+      tags:
+      - Promo codes
+    post:
+      description: "At most once per account. Matching ignores case and spaces. The\
+        \ redemption keeps the promotion's own code, not what was typed."
+      operationId: redeemPromoCode
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/RedeemRequest"
+        required: true
+      responses:
+        "201":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/RedemptionEnvelope"
+          description: Redeemed
+        "400":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+          description: "A code that matches no promotion (\"Invalid promo code.\"\
+            ), or an invalid body"
+        "401":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+          description: Not signed in
+        "403":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+          description: "The CSRF token is missing or wrong: send the value of the\
+            \ XSRF-TOKEN cookie in the X-XSRF-TOKEN header (\"Forbidden.\")."
+        "409":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+          description: Redeemed already ("This promo code has already been used for
+            your account.")
+        "500":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+          description: "An unexpected failure: \"Something went wrong. Please try\
+            \ again.\""
+        "503":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+          description: "An external service, such as Firestore, couldn't be reached:\
+            \ \"Couldn't reach an external service. Please try again in a moment.\""
+      summary: Redeem a promo code
+      tags:
+      - Promo codes
   /api/saved-templates:
     get:
       description: "Each with its template from the catalog, in the order of their\
@@ -1420,6 +1526,15 @@ components:
     AuthResponse:
       type: object
       properties:
+        promo:
+          type: string
+          description: What happened to the promo code given with signing up or in;
+            left out when none was given
+          enum:
+          - applied
+          - already_redeemed
+          - invalid
+          - failed
         user:
           $ref: "#/components/schemas/AuthUserResponse"
     AuthUserResponse:
@@ -1735,6 +1850,39 @@ components:
           type: string
       required:
       - displayName
+    RedeemRequest:
+      type: object
+      properties:
+        promoCode:
+          type: string
+          example: ViSHDOK2026!
+          maxLength: 64
+          minLength: 0
+      required:
+      - promoCode
+    RedemptionEnvelope:
+      type: object
+      properties:
+        redemption:
+          $ref: "#/components/schemas/RedemptionResponse"
+    RedemptionResponse:
+      type: object
+      properties:
+        code:
+          type: string
+        promoId:
+          type: string
+          example: launch-2026
+        redeemedAt:
+          type: integer
+          format: int64
+    RedemptionsResponse:
+      type: object
+      properties:
+        redemptions:
+          type: array
+          items:
+            $ref: "#/components/schemas/RedemptionResponse"
     SaveRequest:
       type: object
       properties:
