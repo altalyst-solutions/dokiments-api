@@ -100,6 +100,11 @@ class SecurityConfig {
                         .authenticated()
                         .requestMatchers(HttpMethod.POST, "/api/promo-redemptions")
                         .authenticated()
+                        // The signed-in user's notifications.
+                        .requestMatchers(HttpMethod.GET, "/api/notifications")
+                        .authenticated()
+                        .requestMatchers(HttpMethod.POST, "/api/notifications/read")
+                        .authenticated()
                         .anyRequest()
                         .denyAll())
                 // Cross-site request forgery tricks a signed-in browser into sending a request with its cookies.
