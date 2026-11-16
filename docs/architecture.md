@@ -102,6 +102,10 @@ The `clients` module is the reference for endpoints that work on the signed-in u
 - Older documents are read leniently, with a missing field read as empty, while everything written follows the rules.
 - Something made from a template keeps a copy of it, from `templates.Templates.snapshot(templateId)`, so later
   changes to the catalog never change it (`documents` does this).
+- A module adds a kind of notification by declaring a Spring bean implementing `notifications.NotificationSource`,
+  which works its notifications out from the module's own data (`templates.application.service.NewTemplateSource`
+  does this). Notifications aren't stored; the `notifications` module only gathers them, keeps the last 14 days and
+  marks what the user has seen.
 - When an answer depends on the user's plan, the use case asks `users.UserProfiles.roleOf(uid)`. That reads the role
   as stored now, so an upgrade counts straight away rather than at the next sign-in (`templates` does this).
 - A rule that must hold across several documents, such as a free account's limit of saved templates, is checked and

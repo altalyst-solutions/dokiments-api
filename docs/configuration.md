@@ -221,6 +221,7 @@ When adding a setting, add it to `.env.example` and to the table above.
 | `GET /api/documents/{id}`, `PATCH /api/documents/{id}`, `DELETE /api/documents/{id}` | Signed in (CSRF token to change) | One document: read, change its name or values, remove (`204` also when it isn't there) |
 | `POST /api/feedback` | Signed in, CSRF token | Feedback or a problem report, at most once a minute per account (`429` otherwise). Read by an administrator in Firestore (`feedback`); there is no endpoint to read it. |
 | `GET /api/promo-redemptions`, `POST /api/promo-redemptions` | Signed in (CSRF token to redeem) | The promo codes the account has redeemed, and redeeming one, at most once per account (`409` again, `400 Invalid promo code.` for a wrong one) |
+| `GET /api/notifications`, `POST /api/notifications/read` | Signed in (CSRF token to mark read) | The notifications of the last 14 days, worked out when asked for (so far: templates newly added to the catalog), and marking them all read |
 | `/swagger-ui.html`, `/v3/api-docs` | `dev` only | Swagger UI and the API description. Elsewhere they don't exist and answer `401`. |
 | Everything else | Denied (`401`) | Opened explicitly as features are added |
 
