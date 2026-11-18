@@ -7,7 +7,7 @@ import com.dokiments.feedback.domain.Feedback;
 import com.dokiments.feedback.domain.FeedbackMessage;
 import com.dokiments.feedback.domain.FeedbackTooSoonException;
 import com.dokiments.feedback.domain.FeedbackType;
-import com.dokiments.shared.SignedInUser;
+import com.dokiments.support.TestUser;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;
@@ -36,7 +36,7 @@ class FeedbackServiceTest {
 
     @Test
     void feedbackIsFromTheSignedInUserWithTheTimeInMilliseconds() {
-        var feedback = service.send(new Sender("Jane"), MESSAGE);
+        var feedback = service.send(TestUser.JANE, MESSAGE);
 
         assertThat(feedback.uid()).isEqualTo("uid-1");
         assertThat(feedback.email()).isEqualTo("jane@example.com");
@@ -48,7 +48,7 @@ class FeedbackServiceTest {
 
     @Test
     void aLongNameIsCutRatherThanRefused() {
-        var feedback = service.send(new Sender("J".repeat(300)), MESSAGE);
+        var feedback = service.send(TestUser.JANE.named("J".repeat(300)), MESSAGE);
 
         assertThat(feedback.displayName()).hasSize(200);
     }
@@ -57,24 +57,10 @@ class FeedbackServiceTest {
     void feedbackTooSoonAfterTheLastIsRefused() {
         tooSoon = true;
 
-        assertThatThrownBy(() -> service.send(new Sender("Jane"), MESSAGE))
+        assertThatThrownBy(() -> service.send(TestUser.JANE, MESSAGE))
                 .isInstanceOf(FeedbackTooSoonException.class)
                 .hasMessage(
                         "Thanks — we just received your last message. Please wait a moment before sending another.");
         assertThat(kept).isEmpty();
-    }
-
-    /** Jane, signed in, with the name the test needs. */
-    private record Sender(String displayName) implements SignedInUser {
-
-        @Override
-        public String uid() {
-            return "uid-1";
-        }
-
-        @Override
-        public String email() {
-            return "jane@example.com";
-        }
     }
 }
