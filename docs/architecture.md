@@ -106,6 +106,9 @@ The `clients` module is the reference for endpoints that work on the signed-in u
   which works its notifications out from the module's own data (`templates.application.service.NewTemplateSource`
   does this). Notifications aren't stored; the `notifications` module only gathers them, keeps the last 14 days and
   marks what the user has seen.
+- The web app relies on Firestore's security rules for some access checks, such as who may read a shared copy. This
+  service uses the Admin SDK, which ignores those rules, so each such check is written in code and tested. A
+  recipient is trusted by address only when `SignedInUser.emailVerified()` is true.
 - When an answer depends on the user's plan, the use case asks `users.UserProfiles.roleOf(uid)`. That reads the role
   as stored now, so an upgrade counts straight away rather than at the next sign-in (`templates` does this).
 - A rule that must hold across several documents, such as a free account's limit of saved templates, is checked and
