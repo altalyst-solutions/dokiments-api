@@ -905,6 +905,160 @@ paths:
       summary: Make a document
       tags:
       - Documents
+  /api/documents/share-recipients:
+    get:
+      description: "Everyone the user has ever shared a document with, the most recent\
+        \ first, to suggest addresses."
+      operationId: listShareRecipients
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/LedgerResponse"
+          description: "The people, an empty list for a user who has shared nothing"
+        "401":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+          description: Not signed in
+        "404":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+          description: Sharing is off ("Not found.")
+        "500":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+          description: "An unexpected failure: \"Something went wrong. Please try\
+            \ again.\""
+        "503":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+          description: "An external service, such as Firestore, couldn't be reached:\
+            \ \"Couldn't reach an external service. Please try again in a moment.\""
+      summary: List the people shared with
+      tags:
+      - Sharing
+  /api/documents/shared:
+    get:
+      description: "With by=me, the copies the user has shared; otherwise the copies\
+        \ shared with the user, which only an account with a verified address sees.\
+        \ The most recently changed first."
+      operationId: listSharedDocuments
+      parameters:
+      - description: me for the copies the user has shared
+        in: query
+        name: by
+        required: false
+        schema:
+          type: string
+          enum:
+          - me
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SharedDocumentsResponse"
+          description: The shared copies
+        "401":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+          description: Not signed in
+        "404":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+          description: Sharing is off ("Not found.")
+        "500":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+          description: "An unexpected failure: \"Something went wrong. Please try\
+            \ again.\""
+        "503":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+          description: "An external service, such as Firestore, couldn't be reached:\
+            \ \"Couldn't reach an external service. Please try again in a moment.\""
+      summary: List shared documents
+      tags:
+      - Sharing
+  /api/documents/shared/{id}/revoke:
+    post:
+      description: "As its owner, from the person it is shared with, who loses access.\
+        \ A signed copy can't be taken back."
+      operationId: revokeSharedDocument
+      parameters:
+      - in: path
+        name: id
+        required: true
+        schema:
+          type: string
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SharedDocumentEnvelope"
+          description: Taken back; the copy as it is now
+        "401":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+          description: Not signed in
+        "403":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+          description: "The CSRF token is missing or wrong: send the value of the\
+            \ XSRF-TOKEN cookie in the X-XSRF-TOKEN header (\"Forbidden.\")."
+        "404":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+          description: "No such copy of the user's (\"Document not found.\"), or sharing\
+            \ is off"
+        "409":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+          description: "Signed already, or shared with nobody (\"This document is\
+            \ not shared with anyone.\")"
+        "500":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+          description: "An unexpected failure: \"Something went wrong. Please try\
+            \ again.\""
+        "503":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+          description: "An external service, such as Firestore, couldn't be reached:\
+            \ \"Couldn't reach an external service. Please try again in a moment.\""
+      summary: Take a shared copy back
+      tags:
+      - Sharing
   /api/documents/{id}:
     delete:
       description: Also 204 when there is no such document.
@@ -1059,6 +1213,91 @@ paths:
       summary: Change a document
       tags:
       - Documents
+  /api/documents/{id}/share:
+    post:
+      description: "Shares a copy of the document with one person, who can then sign\
+        \ it. Sharing again with the same person refreshes their copy (200); sharing\
+        \ with someone it was taken back from gives them access again (201). Only\
+        \ documents whose template has a recipient signature can be shared."
+      operationId: shareDocument
+      parameters:
+      - in: path
+        name: id
+        required: true
+        schema:
+          type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/ShareRequestBody"
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ShareResponse"
+          description: Refreshed for the person who has it
+        "201":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/ShareResponse"
+          description: "Shared with them, newly"
+        "400":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+          description: "Not signable (\"This type of document has no recipient signature,\
+            \ so it cannot be shared for signing.\"), with oneself (\"You cannot share\
+            \ a document with yourself.\"), or an invalid body"
+        "401":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+          description: Not signed in
+        "403":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+          description: The plan's sharing limit ("You have reached the sharing limit
+            for your plan.")
+        "404":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+          description: "No such document of the user's (\"Document not found.\"),\
+            \ or sharing is off"
+        "409":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+          description: "Signed already (\"This document has been signed and can no\
+            \ longer be changed.\"), shared with someone else, or another request\
+            \ shared it at the same moment"
+        "500":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+          description: "An unexpected failure: \"Something went wrong. Please try\
+            \ again.\""
+        "503":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+          description: "An external service, such as Firestore, couldn't be reached:\
+            \ \"Couldn't reach an external service. Please try again in a moment.\""
+      summary: Share a document for signature
+      tags:
+      - Sharing
   /api/feedback:
     post:
       description: "The message is trimmed and 1 to 2000 characters; path, the page\
@@ -1858,6 +2097,24 @@ components:
         type:
           type: string
           example: text
+    LedgerEntryResponse:
+      type: object
+      properties:
+        email:
+          type: string
+        firstSharedAt:
+          type: integer
+          format: int64
+        lastSharedAt:
+          type: integer
+          format: int64
+    LedgerResponse:
+      type: object
+      properties:
+        recipients:
+          type: array
+          items:
+            $ref: "#/components/schemas/LedgerEntryResponse"
     NewClientRequest:
       type: object
       properties:
@@ -2038,6 +2295,152 @@ components:
         lastSeenAt:
           type: integer
           format: int64
+    ShareRequestBody:
+      type: object
+      properties:
+        email:
+          type: string
+          example: client@acme.example
+    ShareResponse:
+      type: object
+      properties:
+        recipient:
+          $ref: "#/components/schemas/SharedWith"
+        sharedDocumentId:
+          type: string
+    SharedDocumentEnvelope:
+      type: object
+      properties:
+        document:
+          $ref: "#/components/schemas/SharedDocumentResponse"
+    SharedDocumentResponse:
+      type: object
+      properties:
+        createdAt:
+          type: integer
+          format: int64
+        id:
+          type: string
+          example: uid123_doc_mhx2k1q8_4f9a2c
+        locked:
+          type: boolean
+        name:
+          type: string
+        ownerEmail:
+          type: string
+        ownerId:
+          type: string
+        ownerName:
+          type: string
+        recipients:
+          type: array
+          items:
+            $ref: "#/components/schemas/SharedRecipientResponse"
+        signatures:
+          type: object
+          additionalProperties:
+            $ref: "#/components/schemas/SignatureResponse"
+        sourceDocumentId:
+          type: string
+        templateId:
+          type: string
+        templateSnapshot:
+          $ref: "#/components/schemas/SharedSnapshotResponse"
+        updatedAt:
+          type: integer
+          format: int64
+        values:
+          type: object
+          additionalProperties:
+            type: string
+        views:
+          type: object
+          additionalProperties:
+            $ref: "#/components/schemas/ViewResponse"
+    SharedDocumentsResponse:
+      type: object
+      properties:
+        documents:
+          type: array
+          items:
+            $ref: "#/components/schemas/SharedDocumentResponse"
+    SharedRecipientResponse:
+      type: object
+      properties:
+        email:
+          type: string
+        emailedAt:
+          type: array
+          items:
+            type: integer
+            format: int64
+        invitedAt:
+          type: integer
+          format: int64
+        revokedAt:
+          type: integer
+          format: int64
+        signedAt:
+          type: integer
+          format: int64
+        status:
+          type: string
+          enum:
+          - pending
+          - viewed
+          - signed
+          - revoked
+        uid:
+          type: string
+    SharedSnapshotFieldResponse:
+      type: object
+      properties:
+        key:
+          type: string
+        label:
+          type: string
+        placeholder:
+          type: string
+        type:
+          type: string
+    SharedSnapshotResponse:
+      type: object
+      properties:
+        description:
+          type: string
+        documentType:
+          type: string
+        fields:
+          type: array
+          items:
+            $ref: "#/components/schemas/SharedSnapshotFieldResponse"
+        name:
+          type: string
+        style:
+          $ref: "#/components/schemas/SharedSnapshotStyleResponse"
+    SharedSnapshotStyleResponse:
+      type: object
+      properties:
+        description:
+          type: string
+        id:
+          type: string
+        name:
+          type: string
+        tier:
+          type: string
+    SharedWith:
+      type: object
+      properties:
+        email:
+          type: string
+        status:
+          type: string
+          enum:
+          - pending
+          - viewed
+          - signed
+          - revoked
     SignInRequest:
       type: object
       properties:
@@ -2077,6 +2480,20 @@ components:
       - displayName
       - email
       - password
+    SignatureResponse:
+      type: object
+      properties:
+        email:
+          type: string
+        signedAt:
+          type: integer
+          format: int64
+        type:
+          type: string
+          enum:
+          - typed
+        value:
+          type: string
     SnapshotFieldResponse:
       type: object
       properties:
@@ -2182,3 +2599,11 @@ components:
           - free
           - silver
           - gold
+    ViewResponse:
+      type: object
+      properties:
+        email:
+          type: string
+        viewedAt:
+          type: integer
+          format: int64

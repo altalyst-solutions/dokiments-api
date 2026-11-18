@@ -222,6 +222,8 @@ When adding a setting, add it to `.env.example` and to the table above.
 | `POST /api/feedback` | Signed in, CSRF token | Feedback or a problem report, at most once a minute per account (`429` otherwise). Read by an administrator in Firestore (`feedback`); there is no endpoint to read it. |
 | `GET /api/promo-redemptions`, `POST /api/promo-redemptions` | Signed in (CSRF token to redeem) | The promo codes the account has redeemed, and redeeming one, at most once per account (`409` again, `400 Invalid promo code.` for a wrong one) |
 | `GET /api/notifications`, `POST /api/notifications/read` | Signed in (CSRF token to mark read) | The notifications of the last 14 days, worked out when asked for (so far: templates newly added to the catalog), and marking them all read |
+| `POST /api/documents/{id}/share`, `POST /api/documents/shared/{id}/revoke` | Signed in, CSRF token, `DOCUMENT_SHARING_ENABLED` | Sharing a copy of a document with one person for their signature, and taking it back |
+| `GET /api/documents/shared` (`?by=me` for one's own), `GET /api/documents/share-recipients` | Signed in, `DOCUMENT_SHARING_ENABLED` | The copies shared with the user (only for a verified address) or by them, and everyone they have shared with |
 | `/swagger-ui.html`, `/v3/api-docs` | `dev` only | Swagger UI and the API description. Elsewhere they don't exist and answer `401`. |
 | Everything else | Denied (`401`) | Opened explicitly as features are added |
 

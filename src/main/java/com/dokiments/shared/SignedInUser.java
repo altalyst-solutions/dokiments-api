@@ -1,7 +1,7 @@
 package com.dokiments.shared;
 
 /**
- * Who sent a request, as any module may see it: the user's ID, address and name.
+ * Who sent a request, as any module may see it: the user's ID, address and name, and whether the address is verified.
  *
  * <p>The session behind it (its Firebase tokens and expiry) stays inside the {@code auth} module. A controller in
  * another module reads the signed-in user with {@code @AuthenticationPrincipal SignedInUser user}, and builds every
@@ -18,4 +18,11 @@ public interface SignedInUser {
 
     /** The user's name, as of signing in or the last change to it in the settings. */
     String displayName();
+
+    /**
+     * Whether Firebase has confirmed that the user owns {@link #email()}, as of signing in or the last refresh.
+     * Anything that trusts the address to decide what the user may see, such as a document shared with it, must check
+     * this: anyone can create an account under an address that isn't theirs.
+     */
+    boolean emailVerified();
 }

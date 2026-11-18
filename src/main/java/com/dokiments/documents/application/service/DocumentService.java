@@ -1,5 +1,7 @@
 package com.dokiments.documents.application.service;
 
+import com.dokiments.documents.Documents;
+import com.dokiments.documents.OwnedDocument;
 import com.dokiments.documents.application.port.in.ManageDocuments;
 import com.dokiments.documents.application.port.out.DocumentStore;
 import com.dokiments.documents.domain.DocumentChanges;
@@ -15,11 +17,12 @@ import java.time.Instant;
 import java.time.temporal.ChronoUnit;
 import java.util.List;
 import java.util.Map;
+import java.util.Optional;
 import java.util.random.RandomGenerator;
 import org.springframework.stereotype.Service;
 
 @Service
-class DocumentService implements ManageDocuments {
+class DocumentService implements ManageDocuments, Documents {
 
     private final DocumentStore store;
     private final Templates templates;
@@ -42,6 +45,18 @@ class DocumentService implements ManageDocuments {
         return DocumentId.parse(documentId)
                 .flatMap(id -> store.find(uid, id))
                 .orElseThrow(DocumentNotFoundException::new);
+    }
+
+    @Override
+    public Optional<OwnedDocument> find(String uid, String documentId) {
+        return DocumentId.parse(documentId)
+                .flatMap(id -> store.find(uid, id))
+                .map(document -> new OwnedDocument(
+                        document.id().value(),
+                        document.name(),
+                        document.templateId(),
+                        document.values(),
+                        document.templateSnapshot()));
     }
 
     @Override
