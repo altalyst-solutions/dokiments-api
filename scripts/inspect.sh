@@ -154,6 +154,10 @@ for name in sorted(os.listdir(out)):
     if not name.endswith(".json"):
         continue
     inspection = name[:-5]
+    # Duplicated code also gets a summary file, <inspection>_aggregate.json, listing each duplicate's fragments in
+    # another layout. The inspection's own file reports every fragment already, so the summary is skipped.
+    if inspection.endswith("_aggregate"):
+        continue
     with open(os.path.join(out, name)) as f:
         for p in json.load(f).get("problems", []):
             path = re.sub(r"^.*?\$PROJECT_DIR\$/", "", p.get("file", ""))
