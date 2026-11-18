@@ -8,6 +8,9 @@ spring:
       url: redis://overridden-by-testcontainers:6379
 
 dokiments:
+  # Sharing is off by default; the tests cover it switched on, and SharingOffIT switched off.
+  features:
+    document-sharing: true
   # Each test writes its own catalog, so it must be read on every request rather than reused.
   templates:
     catalog-cache-time: 0s
