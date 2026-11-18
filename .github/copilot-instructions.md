@@ -197,6 +197,9 @@ Rules, enforced by `HexagonalArchitectureTest` (ArchUnit) and `ModularityTest` (
 
 ## Firestore
 
+- The web app's `firestore.rules` don't protect anything here: the Admin SDK ignores them. Every access check those
+  rules make for the web app (who may read or change a document) must be made in this code instead, and tested, as
+  `sharing` does for shared copies.
 - Firestore code lives only in `adapter.out` packages (the architecture tests reject it elsewhere). Inject the shared
   `com.google.cloud.firestore.Firestore` bean; never create a client yourself.
 - Wait for every call with `platform.firestore.FirestoreCalls.await(...)`. An unreachable Firestore becomes

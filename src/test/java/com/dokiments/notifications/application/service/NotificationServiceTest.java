@@ -6,6 +6,7 @@ import com.dokiments.notifications.Notification;
 import com.dokiments.notifications.NotificationSource;
 import com.dokiments.notifications.application.port.out.SeenNotifications;
 import com.dokiments.shared.SignedInUser;
+import com.dokiments.support.TestUser;
 import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;
@@ -20,7 +21,7 @@ import org.springframework.beans.factory.support.StaticListableBeanFactory;
 class NotificationServiceTest {
 
     private static final Instant NOW = Instant.parse("2026-11-15T12:00:00.123456Z");
-    private static final SignedInUser JANE = new Jane();
+    private static final SignedInUser JANE = TestUser.JANE;
 
     private final Map<String, Instant> seenAt = new HashMap<>();
     private final SeenNotifications seen = new SeenNotifications() {
@@ -97,22 +98,5 @@ class NotificationServiceTest {
 
     private static Notification notification(String id, Instant createdAt) {
         return new Notification(id, "test", "Title", null, null, createdAt);
-    }
-
-    private static final class Jane implements SignedInUser {
-        @Override
-        public String uid() {
-            return "uid-1";
-        }
-
-        @Override
-        public String email() {
-            return "jane@example.com";
-        }
-
-        @Override
-        public String displayName() {
-            return "Jane";
-        }
     }
 }

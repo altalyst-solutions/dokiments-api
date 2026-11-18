@@ -105,6 +105,9 @@ class SecurityConfig {
                         .authenticated()
                         .requestMatchers(HttpMethod.POST, "/api/notifications/read")
                         .authenticated()
+                        // Sharing documents for signature. The lists match the documents' GET rule above too.
+                        .requestMatchers(HttpMethod.POST, "/api/documents/*/share", "/api/documents/shared/*/revoke")
+                        .authenticated()
                         .anyRequest()
                         .denyAll())
                 // Cross-site request forgery tricks a signed-in browser into sending a request with its cookies.
