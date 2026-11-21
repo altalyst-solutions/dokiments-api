@@ -21,8 +21,8 @@ import org.jspecify.annotations.Nullable;
 /**
  * Shared copies as stored in {@code sharedDocuments/{id}}, and ledger entries in
  * {@code users/{uid}/shareRecipients/{email}}, in the shape the web app writes. Besides the copy's own fields, a copy
- * keeps {@code recipientEmails} and {@code recipientUids}: the recipients with access, flat, so a recipient's copies
- * can be found with one query.
+ * keeps {@code recipientEmails} and {@code recipientUids}: the addresses and accounts with access, flat, so a
+ * recipient's copies can be found with one query. The accounts include those an invitation link added.
  *
  * <p>Reading is lenient, as the web app's is: a missing field, or one of another type, reads as empty text, a missing
  * time as the start of 1970 and an unknown status as {@code pending}; the template copy is read by
@@ -35,6 +35,7 @@ final class SharedDocumentFields {
     static final String RECIPIENT_UIDS = "recipientUids";
     static final String RECIPIENTS = "recipients";
     static final String UPDATED_AT = "updatedAt";
+    static final String VIEWS = "views";
 
     private SharedDocumentFields() {}
 
@@ -68,6 +69,22 @@ final class SharedDocumentFields {
         Map<String, Object> fields = new HashMap<>(recipientFields(document));
         fields.put(UPDATED_AT, timestamp(document.updatedAt()));
         return fields;
+    }
+
+    /** The signatures, the lock and the time of the change, which is all that signing a copy changes. */
+    static Map<String, Object> signatureChange(SharedDocument document) {
+        return Map.of(
+                "locked",
+                document.locked(),
+                "signatures",
+                signatures(document.signatures()),
+                UPDATED_AT,
+                timestamp(document.updatedAt()));
+    }
+
+    /** One opening, as it is stored under the viewer's ID in the copy's map of openings. */
+    static Map<String, Object> of(View view) {
+        return Map.of("email", view.email(), "viewedAt", timestamp(view.viewedAt()));
     }
 
     private static Map<String, Object> recipientFields(SharedDocument document) {
@@ -111,6 +128,12 @@ final class SharedDocumentFields {
                         text(document.get(OWNER_ID)),
                         text(document.get("ownerName")),
                         recipients,
+                        document.get(RECIPIENT_UIDS) instanceof List<?> uids
+                                ? uids.stream()
+                                        .filter(String.class::isInstance)
+                                        .map(String.class::cast)
+                                        .toList()
+                                : List.of(),
                         signatures,
                         text(document.get("sourceDocumentId")),
                         text(document.get("templateId")),

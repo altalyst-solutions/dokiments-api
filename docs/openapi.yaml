@@ -997,6 +997,55 @@ paths:
       summary: List shared documents
       tags:
       - Sharing
+  /api/documents/shared/{id}:
+    get:
+      description: "One shared copy, for its owner or the person it is shared with.\
+        \ A recipient opening it for the first time is noted, so the owner can see\
+        \ it was opened; that never changes the answer."
+      operationId: getSharedDocument
+      parameters:
+      - in: path
+        name: id
+        required: true
+        schema:
+          type: string
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SharedDocumentEnvelope"
+          description: The shared copy
+        "401":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+          description: Not signed in
+        "404":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+          description: "No such copy, or not the user's to open (\"You do not have\
+            \ access to this shared document.\"), or sharing is off"
+        "500":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+          description: "An unexpected failure: \"Something went wrong. Please try\
+            \ again.\""
+        "503":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+          description: "An external service, such as Firestore, couldn't be reached:\
+            \ \"Couldn't reach an external service. Please try again in a moment.\""
+      summary: Open a shared document
+      tags:
+      - Sharing
   /api/documents/shared/{id}/revoke:
     post:
       description: "As its owner, from the person it is shared with, who loses access.\
@@ -1057,6 +1106,84 @@ paths:
           description: "An external service, such as Firestore, couldn't be reached:\
             \ \"Couldn't reach an external service. Please try again in a moment.\""
       summary: Take a shared copy back
+      tags:
+      - Sharing
+  /api/documents/shared/{id}/sign:
+    post:
+      description: "Signs a copy shared with the user, with their typed name, and\
+        \ locks it so nobody can change it afterwards. Only a recipient can sign.\
+        \ The owner is emailed afterwards, which never changes the answer."
+      operationId: signSharedDocument
+      parameters:
+      - in: path
+        name: id
+        required: true
+        schema:
+          type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/SignRequestBody"
+        required: true
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/SharedDocumentEnvelope"
+          description: Signed; the copy as it is now
+        "400":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+          description: "A missing, empty or over-long signature (an invalid body),\
+            \ or a copy shared to view, with nothing to sign (\"This document has\
+            \ no recipient signature. It was shared to view, so it cannot be signed.\"\
+            )"
+        "401":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+          description: Not signed in
+        "403":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+          description: "The CSRF token is missing or wrong: send the value of the\
+            \ XSRF-TOKEN cookie in the X-XSRF-TOKEN header (\"Forbidden.\")."
+        "404":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+          description: "Not shared with the user, or no such copy (\"You do not have\
+            \ access to this shared document.\"), or sharing is off"
+        "409":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+          description: Signed already ("This document has been signed and can no longer
+            be changed.")
+        "500":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+          description: "An unexpected failure: \"Something went wrong. Please try\
+            \ again.\""
+        "503":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+          description: "An external service, such as Firestore, couldn't be reached:\
+            \ \"Couldn't reach an external service. Please try again in a moment.\""
+      summary: Sign a shared document
       tags:
       - Sharing
   /api/documents/{id}:
@@ -1215,10 +1342,10 @@ paths:
       - Documents
   /api/documents/{id}/share:
     post:
-      description: "Shares a copy of the document with one person, who can then sign\
-        \ it. Sharing again with the same person refreshes their copy (200); sharing\
-        \ with someone it was taken back from gives them access again (201). Only\
-        \ documents whose template has a recipient signature can be shared."
+      description: Shares a copy of the document with one person. Sharing again with
+        the same person refreshes their copy (200); sharing with someone it was taken
+        back from gives them access again (201). A document whose template has a recipient
+        signature can be signed by them; any other is shared to view only.
       operationId: shareDocument
       parameters:
       - in: path
@@ -1250,9 +1377,8 @@ paths:
             application/json:
               schema:
                 $ref: "#/components/schemas/Error"
-          description: "Not signable (\"This type of document has no recipient signature,\
-            \ so it cannot be shared for signing.\"), with oneself (\"You cannot share\
-            \ a document with yourself.\"), or an invalid body"
+          description: "Shared with oneself (\"You cannot share a document with yourself.\"\
+            ), or an invalid body"
         "401":
           content:
             application/json:
@@ -2461,6 +2587,13 @@ components:
       properties:
         ok:
           type: boolean
+    SignRequestBody:
+      type: object
+      properties:
+        signature:
+          type: string
+          example: Jane Doe
+          maxLength: 200
     SignUpRequest:
       type: object
       properties:

@@ -108,7 +108,12 @@ The `clients` module is the reference for endpoints that work on the signed-in u
   marks what the user has seen.
 - The web app relies on Firestore's security rules for some access checks, such as who may read a shared copy. This
   service uses the Admin SDK, which ignores those rules, so each such check is written in code and tested. A
-  recipient is trusted by address only when `SignedInUser.emailVerified()` is true.
+  recipient is trusted by address only when `SignedInUser.emailVerified()` is true, or by account ID when an invitation
+  link linked the account (`sharing.domain.SharedDocument.canBeOpenedBy`).
+- A use case announces what happened with a domain event published through Spring's `ApplicationEventPublisher`
+  (`sharing.domain.DocumentSigned`). A listener in `adapter.in` marked `@Async` (enabled in `platform.async`, on virtual
+  threads) calls a use case, which sends the email through an outbound port, so the request never waits for the email
+  or fails because of it.
 - When an answer depends on the user's plan, the use case asks `users.UserProfiles.roleOf(uid)`. That reads the role
   as stored now, so an upgrade counts straight away rather than at the next sign-in (`templates` does this).
 - A rule that must hold across several documents, such as a free account's limit of saved templates, is checked and

@@ -41,6 +41,8 @@ class SharingOffIT {
                 call(HttpMethod.GET, "/api/documents/share-recipients", null, session),
                 call(HttpMethod.GET, "/api/documents/shared", null, session),
                 call(HttpMethod.GET, "/api/documents/shared?by=me", null, session),
+                call(HttpMethod.GET, "/api/documents/shared/x_doc_x", null, session),
+                call(HttpMethod.POST, "/api/documents/shared/x_doc_x/sign", "{\"signature\":\"Jane\"}", session),
                 call(HttpMethod.POST, "/api/documents/shared/x_doc_x/revoke", null, session))) {
             assertThat(call).hasStatus(404).bodyJson().isStrictlyEqualTo("{\"error\":\"Not found.\"}");
         }

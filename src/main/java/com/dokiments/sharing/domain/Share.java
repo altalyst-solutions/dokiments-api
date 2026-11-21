@@ -60,6 +60,8 @@ public record Share(SharedDocument document, Recipient recipient, boolean create
             recipients.add(recipient);
         }
 
+        // Accounts an invitation link added stay, except for someone who regains access, who starts afresh.
+        List<String> uids = existing == null || regainsAccess ? List.of() : existing.recipientUids();
         Map<String, View> views = existing == null ? Map.of() : existing.views();
         if (regainsAccess) {
             // Their earlier opening doesn't count for the new share. The previous recipient is known here, since only
@@ -80,6 +82,7 @@ public record Share(SharedDocument document, Recipient recipient, boolean create
                 ownerUid,
                 ownerName,
                 recipients,
+                SharedDocument.linkedUids(uids, recipients),
                 existing == null ? Map.of() : existing.signatures(),
                 source.id(),
                 source.templateId(),
