@@ -232,6 +232,10 @@ Rules, enforced by `HexagonalArchitectureTest` (ArchUnit) and `ModularityTest` (
 - Send email only through `platform.email.EmailSender`, from an outbound adapter called by a listener reacting to a
   domain event, never inline in a use case. `send` never throws: it returns `EmailResult.Sent` or `NotSent` with a
   reason, and a failed email must never fail the action that caused it.
+- The use case publishes the event with Spring's `ApplicationEventPublisher`. The listener lives in `adapter.in`, is
+  marked `@Async` (so the request doesn't wait for the email) and calls a use case, which sends through an outbound
+  port, because adapters never call each other. `sharing` (`DocumentSigned`) is the reference. Its integration test
+  replaces `EmailSender` with `@MockitoBean` and verifies with a timeout, because the email goes after the answer.
 - Each email has two templates in `src/main/resources/email/`, `<name>.html` and `<name>.txt`, built on `layout.html`
   and `footer.txt`. Keep to what mail clients support: tables for layout, inline styles only, absolute links, no SVG.
   Comments in templates use `<!--/* ... */-->`, so they are removed instead of being sent.
