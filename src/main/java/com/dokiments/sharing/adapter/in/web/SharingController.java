@@ -43,17 +43,15 @@ class SharingController {
     @Operation(
             operationId = "shareDocument",
             summary = "Share a document for signature",
-            description =
-                    "Shares a copy of the document with one person, who can then sign it. Sharing again with"
-                            + " the same person refreshes their copy (200); sharing with someone it was taken back from gives"
-                            + " them access again (201). Only documents whose template has a recipient signature can be shared.")
+            description = "Shares a copy of the document with one person. Sharing again with the same person refreshes"
+                    + " their copy (200); sharing with someone it was taken back from gives them access again"
+                    + " (201). A document whose template has a recipient signature can be signed by them;"
+                    + " any other is shared to view only.")
     @ApiResponse(responseCode = "201", description = "Shared with them, newly")
     @ApiResponse(responseCode = "200", description = "Refreshed for the person who has it")
     @ApiResponse(
             responseCode = "400",
-            description = "Not signable (\"This type of document has no recipient signature, so it cannot be shared"
-                    + " for signing.\"), with oneself (\"You cannot share a document with yourself.\"), or an invalid"
-                    + " body",
+            description = "Shared with oneself (\"You cannot share a document with yourself.\"), or an invalid body",
             content = @Content(schema = @Schema(ref = ERROR)))
     @ApiResponse(responseCode = "401", description = "Not signed in", content = @Content(schema = @Schema(ref = ERROR)))
     @ApiResponse(
@@ -125,6 +123,52 @@ class SharingController {
                 documents.stream().map(SharedDocumentResponse::of).toList());
     }
 
+    @GetMapping("/api/documents/shared/{id}")
+    @Operation(
+            operationId = "getSharedDocument",
+            summary = "Open a shared document",
+            description = "One shared copy, for its owner or the person it is shared with. A recipient opening it for"
+                    + " the first time is noted, so the owner can see it was opened; that never changes the answer.")
+    @ApiResponse(responseCode = "200", description = "The shared copy")
+    @ApiResponse(responseCode = "401", description = "Not signed in", content = @Content(schema = @Schema(ref = ERROR)))
+    @ApiResponse(
+            responseCode = "404",
+            description = "No such copy, or not the user's to open (\"You do not have access to this shared"
+                    + " document.\"), or sharing is off",
+            content = @Content(schema = @Schema(ref = ERROR)))
+    SharedDocumentEnvelope get(@AuthenticationPrincipal SignedInUser user, @PathVariable String id) {
+        return new SharedDocumentEnvelope(SharedDocumentResponse.of(shares.open(user, id)));
+    }
+
+    @PostMapping("/api/documents/shared/{id}/sign")
+    @Operation(
+            operationId = "signSharedDocument",
+            summary = "Sign a shared document",
+            description = "Signs a copy shared with the user, with their typed name, and locks it so nobody can change"
+                    + " it afterwards. Only a recipient can sign. The owner is emailed afterwards, which never changes"
+                    + " the answer.")
+    @ApiResponse(responseCode = "200", description = "Signed; the copy as it is now")
+    @ApiResponse(
+            responseCode = "400",
+            description = "A missing, empty or over-long signature (an invalid body), or a copy shared to view, with"
+                    + " nothing to sign (\"This document has no recipient signature. It was shared to view, so it"
+                    + " cannot be signed.\")",
+            content = @Content(schema = @Schema(ref = ERROR)))
+    @ApiResponse(responseCode = "401", description = "Not signed in", content = @Content(schema = @Schema(ref = ERROR)))
+    @ApiResponse(
+            responseCode = "404",
+            description = "Not shared with the user, or no such copy (\"You do not have access to this shared"
+                    + " document.\"), or sharing is off",
+            content = @Content(schema = @Schema(ref = ERROR)))
+    @ApiResponse(
+            responseCode = "409",
+            description = "Signed already (\"This document has been signed and can no longer be changed.\")",
+            content = @Content(schema = @Schema(ref = ERROR)))
+    SharedDocumentEnvelope sign(
+            @AuthenticationPrincipal SignedInUser user, @PathVariable String id, @RequestBody SignRequestBody body) {
+        return new SharedDocumentEnvelope(SharedDocumentResponse.of(shares.sign(user, id, body.signature())));
+    }
+
     @PostMapping("/api/documents/shared/{id}/revoke")
     @Operation(
             operationId = "revokeSharedDocument",
@@ -150,6 +194,12 @@ class SharingController {
     record ShareRequestBody(
             @Nullable @Schema(example = "client@acme.example")
             String email) {}
+
+    /** The name a recipient types to sign. Other fields are ignored, as in the web app. */
+    @SuppressWarnings("unused") // Created by Jackson from the request body.
+    record SignRequestBody(
+            @Nullable @Schema(example = "Jane Doe", maxLength = 200)
+            String signature) {}
 
     /**
      * The answer to sharing.

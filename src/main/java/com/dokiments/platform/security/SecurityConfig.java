@@ -106,7 +106,13 @@ class SecurityConfig {
                         .requestMatchers(HttpMethod.POST, "/api/notifications/read")
                         .authenticated()
                         // Sharing documents for signature. The lists match the documents' GET rule above too.
-                        .requestMatchers(HttpMethod.POST, "/api/documents/*/share", "/api/documents/shared/*/revoke")
+                        .requestMatchers(HttpMethod.GET, "/api/documents/shared/*")
+                        .authenticated()
+                        .requestMatchers(
+                                HttpMethod.POST,
+                                "/api/documents/*/share",
+                                "/api/documents/shared/*/sign",
+                                "/api/documents/shared/*/revoke")
                         .authenticated()
                         .anyRequest()
                         .denyAll())

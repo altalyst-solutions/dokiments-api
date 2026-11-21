@@ -7,12 +7,17 @@ import com.dokiments.documents.Documents;
 import com.dokiments.documents.OwnedDocument;
 import com.dokiments.platform.config.DokimentsProperties;
 import com.dokiments.shared.error.NotFoundException;
+import com.dokiments.shared.error.UpstreamUnavailableException;
 import com.dokiments.sharing.application.port.out.SharedDocumentStore;
+import com.dokiments.sharing.domain.DocumentSigned;
 import com.dokiments.sharing.domain.InvalidShareException;
-import com.dokiments.sharing.domain.NotSignableException;
+import com.dokiments.sharing.domain.NotRecipientException;
+import com.dokiments.sharing.domain.Recipient;
+import com.dokiments.sharing.domain.RecipientStatus;
 import com.dokiments.sharing.domain.Share;
 import com.dokiments.sharing.domain.ShareLedgerEntry;
 import com.dokiments.sharing.domain.SharedDocument;
+import com.dokiments.sharing.domain.Viewer;
 import com.dokiments.support.TestUser;
 import com.dokiments.templates.TemplateSnapshot;
 import com.dokiments.users.AuthProvider;
@@ -24,6 +29,7 @@ import java.time.Clock;
 import java.time.Instant;
 import java.time.ZoneOffset;
 import java.util.ArrayList;
+import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
 import java.util.Optional;
@@ -36,16 +42,17 @@ import org.junit.jupiter.api.Test;
 class SharingServiceTest {
 
     private static final Instant NOW = Instant.parse("2026-11-16T09:00:00.123456Z");
-    private static final TemplateSnapshot CONTRACT = new TemplateSnapshot(
-            "Contract",
-            "",
-            "contract",
-            List.of(new TemplateSnapshot.Field("recipientSignature", "Signature", null, "text")),
-            new TemplateSnapshot.Style("classic", "Classic", "", "free"));
+    private static final Instant NOW_IN_MILLIS = Instant.parse("2026-11-16T09:00:00.123Z");
+    private static final TemplateSnapshot CONTRACT = contractTemplate();
+    private static final TestUser CLIENT = new TestUser("uid-2", "Client@Acme.example", "Client", true);
 
     private final List<SharedDocumentStore.ShareRequest> shared = new ArrayList<>();
     private final List<SharedDocument> owned = new ArrayList<>();
-    private final List<String> queriedEmails = new ArrayList<>();
+    private final List<Viewer> queriedBy = new ArrayList<>();
+    private final List<Viewer> noted = new ArrayList<>();
+    private final List<Object> published = new ArrayList<>();
+    private final Map<String, SharedDocument> copies = new HashMap<>();
+    private boolean notingFails;
     private final Map<String, OwnedDocument> documentsById = Map.of(
             "doc_1", new OwnedDocument("doc_1", "Contract", "classic-contract", Map.of(), CONTRACT),
             "doc_plain", new OwnedDocument("doc_plain", "Letter", "classic-letter", Map.of(), null));
@@ -59,6 +66,8 @@ class SharingServiceTest {
                 () -> service.ledger(TestUser.JANE),
                 () -> service.sharedBy(TestUser.JANE),
                 () -> service.sharedWith(TestUser.JANE),
+                () -> service.open(TestUser.JANE, "uid-1_doc_1"),
+                () -> service.sign(TestUser.JANE, "uid-1_doc_1", "Jane"),
                 () -> service.revoke(TestUser.JANE, "uid-1_doc_1"))) {
             assertThatThrownBy(call).isInstanceOf(NotFoundException.class).hasMessage("Not found.");
         }
@@ -73,35 +82,36 @@ class SharingServiceTest {
         assertThat(request.email()).isEqualTo("client@acme.example");
         assertThat(request.ownerUid()).isEqualTo("uid-1");
         assertThat(request.ownerName()).isEqualTo("Jane");
-        assertThat(request.now()).isEqualTo(Instant.parse("2026-11-16T09:00:00.123Z"));
+        assertThat(request.now()).isEqualTo(NOW_IN_MILLIS);
         assertThat(request.limit()).isNull();
     }
 
     @Test
-    void onlyTheOwnersSignableDocumentsCanBeShared() {
+    void onlyTheOwnersDocumentsCanBeSharedAndAnyOfThemCanBeSharedToView() {
         var service = service(true);
 
         assertThatThrownBy(() -> service.share(TestUser.JANE, "doc_missing", "client@acme.example"))
                 .isInstanceOf(NotFoundException.class)
                 .hasMessage("Document not found.");
-        assertThatThrownBy(() -> service.share(TestUser.JANE, "doc_plain", "client@acme.example"))
-                .isInstanceOf(NotSignableException.class);
         assertThatThrownBy(() -> service.share(TestUser.JANE, "doc_1", null)).isInstanceOf(InvalidShareException.class);
         assertThatThrownBy(() -> service.share(TestUser.JANE, "doc_1", "nope"))
                 .isInstanceOf(InvalidShareException.class);
         assertThat(shared).isEmpty();
+
+        service.share(TestUser.JANE, "doc_plain", "client@acme.example");
+
+        assertThat(shared).hasSize(1);
     }
 
     @Test
-    void anUnverifiedAddressSeesNothingSharedWithIt() {
-        var service = service(true);
+    void whoIsAskingGoesToTheStoreWithTheAddressAsSharingComparesIt() {
+        service(true).sharedWith(CLIENT);
+        service(true).sharedWith(new TestUser("uid-3", " Other@Acme.example", "Other", false));
 
-        assertThat(service.sharedWith(new TestUser("uid-2", "Client@Acme.example", "Client", false)))
-                .isEmpty();
-        assertThat(queriedEmails).isEmpty();
-
-        service.sharedWith(new TestUser("uid-2", " Client@Acme.example", "Client", true));
-        assertThat(queriedEmails).containsExactly("client@acme.example");
+        assertThat(queriedBy)
+                .containsExactly(
+                        new Viewer("uid-2", "client@acme.example", true),
+                        new Viewer("uid-3", "other@acme.example", false));
     }
 
     @Test
@@ -118,6 +128,82 @@ class SharingServiceTest {
         assertThatThrownBy(() -> service(true).revoke(TestUser.JANE, "a/b"))
                 .isInstanceOf(NotFoundException.class)
                 .hasMessage("Document not found.");
+        for (ThrowingCallable call : List.<ThrowingCallable>of(
+                () -> service(true).open(CLIENT, "a/b"), () -> service(true).sign(CLIENT, "a/b", "Client"))) {
+            assertThatThrownBy(call)
+                    .isInstanceOf(NotRecipientException.class)
+                    .hasMessage("You do not have access to this shared document.");
+        }
+    }
+
+    // Opening
+
+    @Test
+    void aRecipientOpeningACopyForTheFirstTimeIsNotedAndGetsItAsItWas() {
+        copies.put("uid-1_doc_1", sharedWithClient());
+
+        var opened = service(true).open(CLIENT, "uid-1_doc_1");
+
+        assertThat(opened.views()).isEmpty();
+        assertThat(noted).containsExactly(new Viewer("uid-2", "client@acme.example", true));
+    }
+
+    @Test
+    void theOwnerOpeningItIsNotNotedAndAStrangerIsRefused() {
+        copies.put("uid-1_doc_1", sharedWithClient());
+
+        service(true).open(TestUser.JANE, "uid-1_doc_1");
+
+        assertThat(noted).isEmpty();
+        assertThatThrownBy(() -> service(true).open(new TestUser("uid-9", "x@y.co", "X", true), "uid-1_doc_1"))
+                .isInstanceOf(NotRecipientException.class);
+        assertThatThrownBy(() -> service(true).open(CLIENT, "missing")).isInstanceOf(NotRecipientException.class);
+    }
+
+    @Test
+    void aFailureToNoteAnOpeningNeverFailsTheOpening() {
+        copies.put("uid-1_doc_1", sharedWithClient());
+        notingFails = true;
+
+        assertThat(service(true).open(CLIENT, "uid-1_doc_1").id()).isEqualTo("uid-1_doc_1");
+    }
+
+    // Signing
+
+    @Test
+    void aSignatureIsCheckedBeforeTheCopyIsLookedUp() {
+        for (String invalid : new String[] {"", "   "}) {
+            assertThatThrownBy(() -> service(true).sign(CLIENT, "missing", invalid))
+                    .isInstanceOf(InvalidShareException.class);
+        }
+        assertThatThrownBy(() -> service(true).sign(CLIENT, "missing", null)).isInstanceOf(InvalidShareException.class);
+        assertThat(published).isEmpty();
+    }
+
+    @Test
+    void signingStoresTheTrimmedSignatureAndAnnouncesItToTheOwner() {
+        copies.put("uid-1_doc_1", sharedWithClient());
+
+        var signed = service(true).sign(CLIENT, "uid-1_doc_1", "  Client Name ");
+
+        assertThat(signed.signatures().get("uid-2").value()).isEqualTo("Client Name");
+        assertThat(published)
+                .containsExactly(new DocumentSigned(
+                        "uid-1_doc_1",
+                        "jane@example.com",
+                        "Contract",
+                        "Client",
+                        "Client@Acme.example",
+                        "uid-2",
+                        NOW_IN_MILLIS));
+    }
+
+    @Test
+    void nothingIsAnnouncedWhenTheSignatureIsRefused() {
+        assertThatThrownBy(() -> service(true).sign(CLIENT, "missing", "Client"))
+                .isInstanceOf(NotRecipientException.class);
+
+        assertThat(published).isEmpty();
     }
 
     private SharingService service(boolean enabled) {
@@ -128,13 +214,45 @@ class SharingServiceTest {
                 documents,
                 new FreeProfiles(),
                 new DokimentsProperties(new DokimentsProperties.Features(enabled, true)),
-                Clock.fixed(NOW, ZoneOffset.UTC));
+                Clock.fixed(NOW, ZoneOffset.UTC),
+                published::add);
     }
 
     private static SharedDocument copy(String id, Instant updatedAt) {
         return new SharedDocument(
-                id, updatedAt, false, "", "", "uid-1", "", List.of(), Map.of(), "", "", updatedAt, Map.of(), Map.of(),
-                null);
+                id, updatedAt, false, "", "", "uid-1", "", List.of(), List.of(), Map.of(), "", "", updatedAt, Map.of(),
+                Map.of(), null);
+    }
+
+    /** Jane's contract, shared with the client, whose address is verified. */
+    private static SharedDocument sharedWithClient() {
+        return new SharedDocument(
+                "uid-1_doc_1",
+                NOW,
+                false,
+                "Contract",
+                "jane@example.com",
+                "uid-1",
+                "Jane",
+                List.of(new Recipient(
+                        "client@acme.example", List.of(), NOW, RecipientStatus.PENDING, null, null, null)),
+                List.of(),
+                Map.of(),
+                "doc_1",
+                "classic-contract",
+                NOW,
+                Map.of(),
+                Map.of(),
+                CONTRACT);
+    }
+
+    private static TemplateSnapshot contractTemplate() {
+        return new TemplateSnapshot(
+                "Contract",
+                "",
+                "contract",
+                List.of(new TemplateSnapshot.Field("recipientSignature", "Signature", null, "text")),
+                new TemplateSnapshot.Style("classic", "Classic", "", "free"));
     }
 
     private final class FakeStore implements SharedDocumentStore {
@@ -150,9 +268,14 @@ class SharingServiceTest {
         }
 
         @Override
-        public List<SharedDocument> sharedWith(String email) {
-            queriedEmails.add(email);
+        public List<SharedDocument> sharedWith(Viewer viewer) {
+            queriedBy.add(viewer);
             return List.of();
+        }
+
+        @Override
+        public Optional<SharedDocument> find(String sharedDocumentId) {
+            return Optional.ofNullable(copies.get(sharedDocumentId));
         }
 
         @Override
@@ -171,6 +294,23 @@ class SharingServiceTest {
         @Override
         public SharedDocument revoke(String ownerUid, String sharedDocumentId, Instant now) {
             throw new NotFoundException("Document not found.");
+        }
+
+        @Override
+        public SharedDocument sign(String sharedDocumentId, Viewer signer, String value, Instant now) {
+            var stored = copies.get(sharedDocumentId);
+            if (stored == null) {
+                throw new NotRecipientException();
+            }
+            return stored.signedBy(signer, value, now);
+        }
+
+        @Override
+        public void recordView(String sharedDocumentId, Viewer viewer, Instant now) {
+            if (notingFails) {
+                throw new UpstreamUnavailableException("Firestore is unreachable.", null);
+            }
+            noted.add(viewer);
         }
     }
 

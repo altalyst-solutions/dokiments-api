@@ -1,11 +1,21 @@
 package com.dokiments.sharing.adapter.in.web;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.Mockito.after;
+import static org.mockito.Mockito.doAnswer;
+import static org.mockito.Mockito.timeout;
+import static org.mockito.Mockito.verify;
 
+import com.dokiments.platform.email.EmailMessage;
+import com.dokiments.platform.email.EmailSender;
 import com.dokiments.platform.firestore.FirestoreCalls;
 import com.dokiments.support.FirebaseEmulatorsContainer;
 import com.dokiments.support.IntegrationTest;
+import com.google.cloud.Timestamp;
 import com.google.cloud.firestore.DocumentReference;
+import com.google.cloud.firestore.FieldPath;
+import com.google.cloud.firestore.FieldValue;
 import com.google.cloud.firestore.Firestore;
 import com.google.cloud.firestore.SetOptions;
 import jakarta.servlet.http.Cookie;
@@ -19,15 +29,18 @@ import java.util.Map;
 import java.util.Objects;
 import java.util.UUID;
 import java.util.concurrent.Callable;
+import java.util.concurrent.ConcurrentLinkedQueue;
 import java.util.concurrent.Executors;
 import org.jspecify.annotations.Nullable;
 import org.junit.jupiter.api.AfterEach;
 import org.junit.jupiter.api.BeforeEach;
 import org.junit.jupiter.api.Test;
+import org.mockito.ArgumentCaptor;
 import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.http.HttpMethod;
 import org.springframework.http.MediaType;
+import org.springframework.test.context.bean.override.mockito.MockitoBean;
 import org.springframework.test.web.servlet.assertj.MockMvcTester;
 import org.springframework.test.web.servlet.assertj.MvcTestResult;
 import tools.jackson.databind.JsonNode;
@@ -55,6 +68,10 @@ class SharingIT {
     @Autowired
     private FirebaseEmulatorsContainer emulators;
 
+    // Email is sent after the answer, so the tests look at what was handed to the sender, which never sends anything.
+    @MockitoBean
+    private EmailSender emailSender;
+
     @BeforeEach
     void writeTheTemplates() {
         write(
@@ -78,7 +95,9 @@ class SharingIT {
                 call(HttpMethod.POST, "/api/documents/doc_x/share", "{\"email\":\"a@b.co\"}", null),
                 call(HttpMethod.GET, "/api/documents/share-recipients", null, null),
                 call(HttpMethod.GET, "/api/documents/shared", null, null),
-                call(HttpMethod.POST, "/api/documents/shared/x_doc_x/revoke", null, null))) {
+                call(HttpMethod.POST, "/api/documents/shared/x_doc_x/revoke", null, null),
+                call(HttpMethod.GET, "/api/documents/shared/x_doc_x", null, null),
+                call(HttpMethod.POST, "/api/documents/shared/x_doc_x/sign", "{\"signature\":\"x\"}", null))) {
             assertThat(call).hasStatus(401).bodyJson().isStrictlyEqualTo("{\"error\":\"Unauthorised.\"}");
         }
     }
@@ -149,10 +168,6 @@ class SharingIT {
         // Checked after "shared with someone else", as in the web app, so on a document not shared yet.
         assertError(
                 share(jane, create(jane, SIGNABLE), jane.email()), 400, "You cannot share a document with yourself.");
-        assertError(
-                share(jane, plain, "client@acme.example"),
-                400,
-                "This type of document has no recipient signature, so it cannot be shared for signing.");
         assertError(share(eve, signable, "client@acme.example"), 404, "Document not found.");
         assertError(share(jane, "doc_missing", "client@acme.example"), 404, "Document not found.");
         for (String body : List.of("{}", "{\"email\":\"nope\"}", "{\"email\":5}")) {
@@ -290,6 +305,288 @@ class SharingIT {
                 .isEqualTo(List.of("client@acme.example"));
     }
 
+    // Sharing to view
+
+    @Test
+    void aDocumentWithoutARecipientSignatureIsSharedToViewAndCannotBeSigned() {
+        var jane = signUp("Jane");
+        String doc = create(jane, PLAIN);
+        var client = signUp("Client");
+
+        assertThat(share(jane, doc, client.email())).hasStatus(201);
+
+        Cookie verified = verifyAndSignIn(client);
+        String copyId = jane.uid() + "_" + doc;
+        assertThat(open(verified, copyId)).hasStatusOk();
+        assertError(
+                sign(verified, copyId, "Client"),
+                400,
+                "This document has no recipient signature. It was shared to view, so it cannot be signed.");
+        assertThat(FirestoreCalls.await(
+                                firestore.document("sharedDocuments/" + copyId).get())
+                        .getBoolean("locked"))
+                .isFalse();
+        verify(emailSender, after(500).never()).send(any());
+    }
+
+    // Opening
+
+    @Test
+    void theOwnerAndAVerifiedRecipientOpenACopyAndNobodyElseCan() {
+        var jane = signUp("Jane");
+        String doc = create(jane, SIGNABLE);
+        var client = signUp("Client");
+        share(jane, doc, client.email());
+        String copyId = jane.uid() + "_" + doc;
+        var stranger = verifyAndSignIn(signUp("Stranger"));
+        String denied = "You do not have access to this shared document.";
+
+        assertThat(body(open(jane.session(), copyId))
+                        .path("document")
+                        .path("id")
+                        .asString())
+                .isEqualTo(copyId);
+        assertError(open(client.session(), copyId), 404, denied);
+        Cookie verified = verifyAndSignIn(client);
+        JsonNode copy = body(open(verified, copyId)).path("document");
+        assertThat(copy.path("ownerName").asString()).isEqualTo("Jane");
+        assertThat(copy.path("recipients").get(0).path("email").asString()).isEqualTo(client.email());
+        assertThat(copy.path("values").path("client").asString()).isEqualTo("Acme");
+        assertError(open(stranger, copyId), 404, denied);
+        assertError(open(verified, "missing_doc"), 404, denied);
+        assertError(open(verified, "__name__"), 404, denied);
+        assertThat(call(HttpMethod.GET, "/api/documents/shared/" + copyId, null, null))
+                .hasStatus(401);
+    }
+
+    @Test
+    void aRecipientsFirstOpeningIsRecordedOnceWithoutChangingTheCopy() {
+        var jane = signUp("Jane");
+        String doc = create(jane, SIGNABLE);
+        var client = signUp("Client");
+        share(jane, doc, client.email());
+        Cookie verified = verifyAndSignIn(client);
+        String copyId = jane.uid() + "_" + doc;
+        var before = FirestoreCalls.await(
+                firestore.document("sharedDocuments/" + copyId).get());
+
+        JsonNode firstAnswer = body(open(verified, copyId)).path("document");
+        assertThat(firstAnswer.path("views").isObject()).isTrue();
+        assertThat(firstAnswer.path("views")).isEmpty();
+
+        var after = FirestoreCalls.await(
+                firestore.document("sharedDocuments/" + copyId).get());
+        assertThat(after.get(FieldPath.of("views", client.uid(), "email"))).isEqualTo(client.email());
+        assertThat(after.getTimestamp("updatedAt")).isEqualTo(before.getTimestamp("updatedAt"));
+        var viewedAt = after.get(FieldPath.of("views", client.uid(), "viewedAt"));
+
+        open(verified, copyId);
+        open(jane.session(), copyId);
+        var again = FirestoreCalls.await(
+                firestore.document("sharedDocuments/" + copyId).get());
+        assertThat(again.get(FieldPath.of("views", client.uid(), "viewedAt"))).isEqualTo(viewedAt);
+        assertThat(((Map<?, ?>) Objects.requireNonNull(again.get("views")))).hasSize(1);
+
+        JsonNode owners = body(call(HttpMethod.GET, "/api/documents/shared?by=me", null, jane.session()))
+                .path("documents")
+                .get(0);
+        assertThat(owners.path("recipients").get(0).path("status").asString()).isEqualTo("viewed");
+        assertThat(owners.path("views").path(client.uid()).path("email").asString())
+                .isEqualTo(client.email());
+    }
+
+    @Test
+    void theOwnerOpeningTheirCopyRecordsNoView() {
+        var jane = signUp("Jane");
+        String doc = create(jane, SIGNABLE);
+        share(jane, doc, "client@acme.example");
+
+        open(jane.session(), jane.uid() + "_" + doc);
+
+        assertThat(FirestoreCalls.await(firestore
+                                .document("sharedDocuments/" + jane.uid() + "_" + doc)
+                                .get())
+                        .contains("views"))
+                .isFalse();
+    }
+
+    @Test
+    void anAccountAnInviteLinkedOpensAndSignsWithoutAVerifiedAddressAndSharingAgainKeepsIt() {
+        var jane = signUp("Jane");
+        String doc = create(jane, SIGNABLE);
+        var client = signUp("Client");
+        share(jane, doc, client.email());
+        String copyId = jane.uid() + "_" + doc;
+        // What accepting an invitation link writes: the account's ID, on the copy's list of accounts with access.
+        FirestoreCalls.await(firestore
+                .document("sharedDocuments/" + copyId)
+                .update("recipientUids", FieldValue.arrayUnion(client.uid())));
+
+        assertThat(sharedWith(client.session())).hasSize(1);
+        assertThat(open(client.session(), copyId)).hasStatusOk();
+        assertThat(share(jane, doc, client.email())).hasStatus(200);
+        assertThat(FirestoreCalls.await(
+                                firestore.document("sharedDocuments/" + copyId).get())
+                        .get("recipientUids"))
+                .isEqualTo(List.of(client.uid()));
+        assertThat(sign(client.session(), copyId, "Client")).hasStatusOk();
+    }
+
+    // Signing
+
+    @Test
+    void aRecipientSignsAndTheCopyIsLockedAndTheOwnerIsEmailed() {
+        var jane = signUp("Jane");
+        String doc = create(jane, SIGNABLE);
+        var client = signUp("Client");
+        share(jane, doc, client.email());
+        Cookie verified = verifyAndSignIn(client);
+        String copyId = jane.uid() + "_" + doc;
+        var senders = new ConcurrentLinkedQueue<Thread>();
+        doAnswer(call -> senders.add(Thread.currentThread())).when(emailSender).send(any());
+
+        MvcTestResult signed = sign(verified, copyId, "  Client Name ");
+
+        assertThat(signed).hasStatusOk();
+        JsonNode copy = body(signed).path("document");
+        assertThat(copy.path("locked").asBoolean()).isTrue();
+        assertThat(copy.path("signatures").path(client.uid()).path("value").asString())
+                .isEqualTo("Client Name");
+        assertThat(copy.path("signatures").path(client.uid()).path("email").asString())
+                .isEqualTo(client.email());
+        assertThat(copy.path("signatures").path(client.uid()).path("type").asString())
+                .isEqualTo("typed");
+        assertThat(copy.path("recipients").get(0).path("status").asString()).isEqualTo("signed");
+
+        var stored = FirestoreCalls.await(
+                firestore.document("sharedDocuments/" + copyId).get());
+        assertThat(stored.getBoolean("locked")).isTrue();
+        assertThat(stored.get(FieldPath.of("signatures", client.uid(), "value")))
+                .isEqualTo("Client Name");
+        assertThat(stored.get(FieldPath.of("signatures", client.uid(), "signedAt")))
+                .isInstanceOf(Timestamp.class);
+
+        var email = ArgumentCaptor.forClass(EmailMessage.class);
+        verify(emailSender, timeout(5000)).send(email.capture());
+        assertThat(email.getValue().to()).isEqualTo(jane.email());
+        assertThat(email.getValue().subject()).isEqualTo("Client signed \"For Acme\"");
+        assertThat(email.getValue().template()).isEqualTo("sharing/document-signed");
+        assertThat(email.getValue().variables())
+                .containsEntry("signerName", "Client")
+                .containsEntry("documentName", "For Acme");
+        assertThat((String) email.getValue().variables().get("url")).endsWith("/my-documents/shared/" + copyId);
+        assertThat(email.getValue().idempotencyKey()).startsWith("signed-");
+        // The answer doesn't wait for the email: it is sent from another, virtual, thread.
+        assertThat(senders).singleElement().satisfies(sender -> {
+            assertThat(sender).isNotSameAs(Thread.currentThread());
+            assertThat(sender.isVirtual()).isTrue();
+        });
+
+        String locked = "This document has been signed and can no longer be changed.";
+        assertError(sign(verified, copyId, "Again"), 409, locked);
+        assertError(share(jane, doc, client.email()), 409, locked);
+        assertError(revoke(jane, copyId), 409, locked);
+    }
+
+    @Test
+    void aSigningIsRefusedForTheWebAppsReasons() {
+        var jane = signUp("Jane");
+        String doc = create(jane, SIGNABLE);
+        var client = signUp("Client");
+        share(jane, doc, client.email());
+        String copyId = jane.uid() + "_" + doc;
+        Cookie verified = verifyAndSignIn(client);
+        String denied = "You do not have access to this shared document.";
+
+        assertError(sign(jane.session(), copyId, "Jane"), 404, denied);
+        assertError(sign(client.session(), copyId, "Client"), 404, denied);
+        assertError(sign(verifyAndSignIn(signUp("Stranger")), copyId, "Stranger"), 404, denied);
+        assertError(sign(verified, "missing_doc", "Client"), 404, denied);
+        for (String body : List.of(
+                "{}",
+                "{\"signature\":\"\"}",
+                "{\"signature\":\"   \"}",
+                "{\"signature\":5}",
+                "{\"signature\":null}",
+                "{\"signature\":\"" + "x".repeat(201) + "\"}")) {
+            assertError(
+                    call(HttpMethod.POST, "/api/documents/shared/" + copyId + "/sign", body, verified),
+                    400,
+                    "Invalid request body.");
+        }
+        assertThat(sign(verified, copyId, "x".repeat(200))).hasStatusOk();
+    }
+
+    @Test
+    void aRecipientTakenBackFromCannotOpenOrSign() {
+        var jane = signUp("Jane");
+        String doc = create(jane, SIGNABLE);
+        var client = signUp("Client");
+        share(jane, doc, client.email());
+        Cookie verified = verifyAndSignIn(client);
+        String copyId = jane.uid() + "_" + doc;
+        revoke(jane, copyId);
+
+        String denied = "You do not have access to this shared document.";
+        assertError(open(verified, copyId), 404, denied);
+        assertError(sign(verified, copyId, "Client"), 404, denied);
+        verify(emailSender, after(500).never()).send(any());
+    }
+
+    @Test
+    void twoSignaturesAtOnceCantBothSucceed() throws Exception {
+        var jane = signUp("Jane");
+        String doc = create(jane, SIGNABLE);
+        var client = signUp("Client");
+        share(jane, doc, client.email());
+        Cookie verified = verifyAndSignIn(client);
+        String copyId = jane.uid() + "_" + doc;
+
+        List<Callable<Integer>> signatures = List.of(
+                () -> sign(verified, copyId, "First").getResponse().getStatus(),
+                () -> sign(verified, copyId, "Second").getResponse().getStatus());
+        List<Integer> statuses = new ArrayList<>();
+        try (var threads = Executors.newFixedThreadPool(2)) {
+            for (var answer : threads.invokeAll(signatures)) {
+                statuses.add(answer.get());
+            }
+        }
+
+        assertThat(statuses).containsExactlyInAnyOrder(200, 409);
+        var stored = FirestoreCalls.await(
+                firestore.document("sharedDocuments/" + copyId).get());
+        assertThat((Map<?, ?>) Objects.requireNonNull(stored.get("signatures"))).hasSize(1);
+        verify(emailSender, timeout(5000).times(1)).send(any());
+    }
+
+    // Notifications
+
+    @Test
+    void theRecipientIsNotifiedOfTheShareAndTheOwnerOfTheSignature() {
+        var jane = signUp("Jane");
+        String doc = create(jane, SIGNABLE);
+        var client = signUp("Client");
+        share(jane, doc, client.email());
+        Cookie verified = verifyAndSignIn(client);
+        String copyId = jane.uid() + "_" + doc;
+
+        JsonNode shared = notificationsOf(verified, "document-shared").getFirst();
+        assertThat(shared.path("id").asString()).isEqualTo("document-shared:" + copyId);
+        assertThat(shared.path("title").asString()).isEqualTo("Jane shared a document");
+        assertThat(shared.path("body").asString()).isEqualTo("For Acme");
+        assertThat(shared.path("action").path("href").asString()).isEqualTo("/my-documents?tab=shared");
+        assertThat(notificationsOf(jane.session(), "document-shared")).isEmpty();
+        assertThat(notificationsOf(jane.session(), "document-signed")).isEmpty();
+
+        sign(verified, copyId, "Client Name");
+
+        JsonNode signed = notificationsOf(jane.session(), "document-signed").getFirst();
+        assertThat(signed.path("id").asString()).isEqualTo("document-signed:" + copyId + ":" + client.uid());
+        assertThat(signed.path("title").asString()).isEqualTo(client.email() + " signed a document");
+        assertThat(signed.path("action").path("href").asString()).isEqualTo("/my-documents/shared/" + copyId);
+        assertThat(notificationsOf(client.session(), "document-shared")).isEmpty();
+    }
+
     // Helpers
 
     private static final String PASSWORD = "secret123";
@@ -344,6 +641,26 @@ class SharingIT {
 
     private MvcTestResult revoke(Account owner, String sharedDocumentId) {
         return call(HttpMethod.POST, "/api/documents/shared/" + sharedDocumentId + "/revoke", null, owner.session());
+    }
+
+    private MvcTestResult open(Cookie session, String sharedDocumentId) {
+        return call(HttpMethod.GET, "/api/documents/shared/" + sharedDocumentId, null, session);
+    }
+
+    private MvcTestResult sign(Cookie session, String sharedDocumentId, String signature) {
+        return call(
+                HttpMethod.POST,
+                "/api/documents/shared/" + sharedDocumentId + "/sign",
+                "{\"signature\":" + JSON.writeValueAsString(signature) + "}",
+                session);
+    }
+
+    private List<JsonNode> notificationsOf(Cookie session, String kind) {
+        return body(call(HttpMethod.GET, "/api/notifications", null, session))
+                .path("notifications")
+                .valueStream()
+                .filter(notification -> kind.equals(notification.path("kind").asString()))
+                .toList();
     }
 
     private List<JsonNode> sharedWith(Cookie session) {
