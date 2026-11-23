@@ -290,6 +290,76 @@ class DocumentsIT {
         }
     }
 
+    // Duplicating
+
+    @Test
+    void aDuplicateIsANewDocumentWithTheSourcesTemplateCopyAndTheValuesSent() {
+        var jane = signUp();
+        String id = create(jane.session());
+        write("templates/" + TEMPLATE, template("Renamed in the catalog", true));
+
+        MvcTestResult duplicated = call(
+                HttpMethod.POST,
+                "/api/documents/" + id + "/duplicate",
+                "{\"name\":\"Copy\",\"values\":{\"client\":\"Beta\"},\"templateId\":\"other\"}",
+                jane.session());
+
+        assertThat(duplicated).hasStatus(201);
+        JsonNode copy = body(duplicated).path("document");
+        assertThat(copy.path("id").asString()).isNotEqualTo(id).matches("doc_[0-9a-z]+_[0-9a-z]{6}");
+        assertThat(copy.path("name").asString()).isEqualTo("Copy");
+        assertThat(copy.path("templateId").asString()).isEqualTo(TEMPLATE);
+        assertThat(copy.path("values").toString()).isEqualTo("{\"client\":\"Beta\"}");
+        assertThat(copy.path("templateSnapshot").toString()).isEqualTo(SNAPSHOT);
+        assertThat(copy.path("createdAt").asLong())
+                .isEqualTo(copy.path("updatedAt").asLong());
+
+        JsonNode source = body(call(HttpMethod.GET, "/api/documents/" + id, null, jane.session()))
+                .path("document");
+        assertThat(source.path("name").asString()).isEqualTo("For Acme");
+        assertThat(ids(call(HttpMethod.GET, "/api/documents", null, jane.session())))
+                .containsExactlyInAnyOrder(id, copy.path("id").asString());
+    }
+
+    @Test
+    void onlyTheUsersOwnDocumentWithATemplateCopyCanBeDuplicated() {
+        var eve = signUp();
+        String evesDocument = create(eve.session());
+        var jane = signUp();
+        write("users/" + jane.uid() + "/documents/doc_old", Map.of("name", "Before template copies"));
+        String body = "{\"name\":\"Copy\",\"values\":{}}";
+
+        for (String id : List.of(evesDocument, "doc_old", "doc_missing", "__name__")) {
+            assertThat(call(HttpMethod.POST, "/api/documents/" + id + "/duplicate", body, jane.session()))
+                    .as(id)
+                    .hasStatus(404)
+                    .bodyJson()
+                    .isStrictlyEqualTo(NOT_FOUND);
+        }
+        assertThat(FirestoreCalls.await(documents(jane.uid()).get()).size()).isEqualTo(1);
+        assertThat(call(HttpMethod.POST, "/api/documents/doc_old/duplicate", body, null))
+                .hasStatus(401);
+    }
+
+    @Test
+    void anInvalidDuplicateIsRefused() {
+        var jane = signUp();
+        String id = create(jane.session());
+
+        for (String body : List.of(
+                "{\"values\":{}}",
+                "{\"name\":\"\",\"values\":{}}",
+                "{\"name\":\"Copy\"}",
+                "{\"name\":\"Copy\",\"values\":{\"a\":1}}",
+                "{\"name\":\"Copy\",\"values\":{\"a\":\"" + "x".repeat(20_001) + "\"}}")) {
+            assertThat(call(HttpMethod.POST, "/api/documents/" + id + "/duplicate", body, jane.session()))
+                    .as(body.length() > 100 ? body.substring(0, 100) : body)
+                    .hasStatus(400)
+                    .bodyJson()
+                    .isStrictlyEqualTo(INVALID_BODY);
+        }
+    }
+
     // Removing
 
     @Test

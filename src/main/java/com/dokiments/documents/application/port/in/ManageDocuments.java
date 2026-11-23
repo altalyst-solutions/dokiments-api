@@ -29,6 +29,17 @@ public interface ManageDocuments {
     UserDocument create(String uid, String templateId, String name, Map<String, String> values);
 
     /**
+     * Makes an independent copy of one of the user's documents, with a new name and values. The copy keeps the source's
+     * template and its copy of the template, never the catalog's current one, and gets a new ID and new times.
+     *
+     * @param name the name, already checked with {@code DocumentContent.name}
+     * @param values the values, already checked with {@code DocumentContent.values}
+     * @throws com.dokiments.documents.domain.DocumentNotFoundException if the user has no document with this ID, or it
+     *     is older than template copies and so has nothing to copy the form from
+     */
+    UserDocument duplicate(String uid, String documentId, String name, Map<String, String> values);
+
+    /**
      * Changes a document's name or values and returns it as stored now.
      *
      * @throws com.dokiments.documents.domain.DocumentNotFoundException if the user has no document with this ID

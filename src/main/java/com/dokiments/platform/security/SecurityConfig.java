@@ -86,7 +86,7 @@ class SecurityConfig {
                         // The signed-in user's documents.
                         .requestMatchers(HttpMethod.GET, "/api/documents", "/api/documents/*")
                         .authenticated()
-                        .requestMatchers(HttpMethod.POST, "/api/documents")
+                        .requestMatchers(HttpMethod.POST, "/api/documents", "/api/documents/*/duplicate")
                         .authenticated()
                         .requestMatchers(HttpMethod.PATCH, "/api/documents/*")
                         .authenticated()

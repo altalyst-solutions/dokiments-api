@@ -1340,6 +1340,77 @@ paths:
       summary: Change a document
       tags:
       - Documents
+  /api/documents/{id}/duplicate:
+    post:
+      description: "Makes an independent copy of one of the user's documents, with\
+        \ the name and values sent, which the user reviewed in the editor. The template\
+        \ and its copy (templateSnapshot) always come from the stored document, never\
+        \ from the request. The copy gets a new ID and new times, and none of the\
+        \ source's sharing. The same limits apply as for making a document."
+      operationId: duplicateDocument
+      parameters:
+      - in: path
+        name: id
+        required: true
+        schema:
+          type: string
+      requestBody:
+        content:
+          application/json:
+            schema:
+              $ref: "#/components/schemas/DuplicateRequest"
+        required: true
+      responses:
+        "201":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/DocumentEnvelope"
+          description: "Copied, with its new ID"
+        "400":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+          description: The body isn't valid JSON ("Request body must be valid JSON.")
+            or doesn't match what the endpoint expects ("Invalid request body.").
+        "401":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+          description: Not signed in
+        "403":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+          description: "The CSRF token is missing or wrong: send the value of the\
+            \ XSRF-TOKEN cookie in the X-XSRF-TOKEN header (\"Forbidden.\")."
+        "404":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+          description: "No such document among the user's own, or one older than template\
+            \ copies (\"Document not found.\")"
+        "500":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+          description: "An unexpected failure: \"Something went wrong. Please try\
+            \ again.\""
+        "503":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+          description: "An external service, such as Firestore, couldn't be reached:\
+            \ \"Couldn't reach an external service. Please try again in a moment.\""
+      summary: Duplicate a document
+      tags:
+      - Documents
   /api/documents/{id}/share:
     post:
       description: Shares a copy of the document with one person. Sharing again with
@@ -2145,6 +2216,19 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/DocumentResponse"
+    DuplicateRequest:
+      type: object
+      properties:
+        name:
+          type: string
+          example: Invoice for Acme (copy)
+        values:
+          type: object
+          additionalProperties:
+            type: string
+      required:
+      - name
+      - values
     EmailRequest:
       type: object
       properties:

@@ -69,6 +69,21 @@ class DocumentService implements ManageDocuments, Documents {
     }
 
     @Override
+    public UserDocument duplicate(String uid, String documentId, String name, Map<String, String> values) {
+        var source = get(uid, documentId);
+        var snapshot = source.templateSnapshot();
+        if (snapshot == null) {
+            // Without a copy of its template, there is no form to give the duplicate, as in the web app.
+            throw new DocumentNotFoundException();
+        }
+        var now = now();
+        var copy = new UserDocument(
+                DocumentId.generate(now, random), name, source.templateId(), snapshot, values, now, now);
+        store.add(uid, copy);
+        return copy;
+    }
+
+    @Override
     public UserDocument change(String uid, String documentId, DocumentChanges changes) {
         var id = DocumentId.parse(documentId).orElseThrow(DocumentNotFoundException::new);
         // Checked first so a change can never create a document, then read again afterwards, because the answer is

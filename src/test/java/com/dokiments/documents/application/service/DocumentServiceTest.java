@@ -86,6 +86,46 @@ class DocumentServiceTest {
     }
 
     @Test
+    void aDuplicateKeepsTheSourcesTemplateCopyWithTheNewNameAndValues() {
+        var source = stored("uid-1", "doc_a", "classic-invoice");
+
+        var copy = service.duplicate("uid-1", "doc_a", "Copy", Map.of("client", "Beta"));
+
+        assertThat(copy.id()).isNotEqualTo(source.id());
+        assertThat(copy.id().value()).startsWith("doc_");
+        assertThat(copy)
+                .isEqualTo(new UserDocument(
+                        copy.id(),
+                        "Copy",
+                        "classic-invoice",
+                        INVOICE,
+                        Map.of("client", "Beta"),
+                        NOW_MILLIS,
+                        NOW_MILLIS));
+        assertThat(store.all("uid-1")).containsExactly(source, copy);
+    }
+
+    @Test
+    void onlyTheUsersOwnDocumentWithATemplateCopyCanBeDuplicated() {
+        stored("uid-2", "doc_a", "classic-invoice");
+        store.add(
+                "uid-1",
+                new UserDocument(
+                        new DocumentId("doc_old"),
+                        "Old",
+                        "classic-invoice",
+                        null,
+                        Map.of(),
+                        Instant.EPOCH,
+                        Instant.EPOCH));
+
+        assertNotFound(() -> service.duplicate("uid-1", "doc_a", "Copy", Map.of()));
+        assertNotFound(() -> service.duplicate("uid-1", "doc_old", "Copy", Map.of()));
+        assertNotFound(() -> service.duplicate("uid-1", "a/b", "Copy", Map.of()));
+        assertThat(store.all("uid-1")).hasSize(1);
+    }
+
+    @Test
     void aChangeIsStoredAndTheDocumentReadAgain() {
         stored("uid-1", "doc_a", "classic-invoice");
         var changes = DocumentChanges.of("Renamed", null);

@@ -95,6 +95,31 @@ class DocumentsController {
         return new DocumentEnvelope(DocumentResponse.of(document));
     }
 
+    @PostMapping("/api/documents/{id}/duplicate")
+    @ResponseStatus(HttpStatus.CREATED)
+    @Operation(
+            operationId = "duplicateDocument",
+            summary = "Duplicate a document",
+            description = "Makes an independent copy of one of the user's documents, with the name and values sent,"
+                    + " which the user reviewed in the editor. The template and its copy (templateSnapshot) always"
+                    + " come from the stored document, never from the request. The copy gets a new ID and new times,"
+                    + " and none of the source's sharing. The same limits apply as for making a document.")
+    @ApiResponse(responseCode = "201", description = "Copied, with its new ID")
+    @ApiResponse(responseCode = "401", description = "Not signed in", content = @Content(schema = @Schema(ref = ERROR)))
+    @ApiResponse(
+            responseCode = "404",
+            description = "No such document among the user's own, or one older than template copies (\"Document not"
+                    + " found.\")",
+            content = @Content(schema = @Schema(ref = ERROR)))
+    DocumentEnvelope duplicate(
+            @AuthenticationPrincipal SignedInUser user,
+            @PathVariable String id,
+            @Valid @RequestBody DuplicateRequest body) {
+        var copy = documents.duplicate(
+                user.uid(), id, DocumentContent.name(body.name()), DocumentContent.values(body.values()));
+        return new DocumentEnvelope(DocumentResponse.of(copy));
+    }
+
     @GetMapping("/api/documents/{id}")
     @Operation(operationId = "getDocument", summary = "Get a document")
     @ApiResponse(responseCode = "200", description = "The document")
@@ -144,6 +169,14 @@ class DocumentsController {
     record NewDocumentRequest(
             @NotNull @Schema(example = "Invoice for Acme") String name,
             @NotEmpty @Schema(example = "classic-invoice") String templateId,
+            @NotNull Map<String, @Nullable String> values) {}
+
+    /** The copy's name and values. Other fields, such as a template, are ignored, as in the web app. */
+    @SuppressWarnings("unused") // Created by Jackson from the request body.
+    record DuplicateRequest(
+            @NotNull @Schema(example = "Invoice for Acme (copy)")
+            String name,
+
             @NotNull Map<String, @Nullable String> values) {}
 
     /** The change. A field left out, or sent as {@code null}, stays as it is. */
