@@ -5,18 +5,18 @@
 # Only libraries Boot does not manage carry a version here.
 
 [versions]
-spring-boot = "4.1.2"
-spring-modulith = "2.1.2"
+spring-boot = "4.2.0"
+spring-modulith = "2.2.0"
 firebase-admin = "9.12.0"
 archunit = "1.5.1"
-springdoc = "3.2.0"
+springdoc = "3.2.1"
 
 # Code quality tooling
 spotless = "8.11.0"
 palantir-java-format = "2.103.0"
 errorprone-plugin = "5.2.0"
-errorprone = "2.52.0"
-nullaway = "0.14.3"
+errorprone = "2.53.0"
+nullaway = "0.14.4"
 jacoco = "0.8.16"
 
 # Security overrides: newer than the versions the Spring Boot and Google BOMs pick, because
