@@ -4,6 +4,7 @@ import static org.assertj.core.api.Assertions.assertThat;
 
 import com.dokiments.shared.error.ConflictException;
 import com.dokiments.shared.error.ForbiddenException;
+import com.dokiments.shared.error.GoneException;
 import com.dokiments.shared.error.InvalidRequestException;
 import com.dokiments.shared.error.NotFoundException;
 import com.dokiments.shared.error.TooManyRequestsException;
@@ -13,6 +14,8 @@ import jakarta.validation.Valid;
 import jakarta.validation.constraints.Min;
 import jakarta.validation.constraints.NotBlank;
 import java.net.ConnectException;
+import java.util.Map;
+import org.jspecify.annotations.NonNull;
 import org.junit.jupiter.api.Test;
 import org.junit.jupiter.params.ParameterizedTest;
 import org.junit.jupiter.params.provider.CsvSource;
@@ -55,6 +58,7 @@ class ApiExceptionHandlerTest {
         "forbidden, 403, Your plan does not allow this action.",
         "not-found, 404, Document not found.",
         "conflict, 409, This document is not shared with anyone.",
+        "gone, 410, This invitation has expired.",
         "upstream-unavailable, 503, Couldn't reach an external service. Please try again in a moment.",
         "upstream-io, 503, Couldn't reach an external service. Please try again in a moment.",
         "too-many, 429, Too many attempts. Please try again later.",
@@ -72,6 +76,14 @@ class ApiExceptionHandlerTest {
                 .hasStatus(403)
                 .bodyJson()
                 .isStrictlyEqualTo("{\"code\":\"REAUTH_REQUIRED\",\"error\":\"Sign in again first.\"}");
+    }
+
+    @Test
+    void extraFieldsTheWebAppUsesAreSentNextToTheMessage() {
+        assertThat(mvc.get().uri("/probe/fail/with-fields"))
+                .hasStatus(403)
+                .bodyJson()
+                .isStrictlyEqualTo("{\"error\":\"Not your invitation.\",\"invitedEmail\":\"j***@example.com\"}");
     }
 
     @Test
@@ -235,6 +247,14 @@ class ApiExceptionHandlerTest {
                 case "forbidden" -> new ForbiddenException("Your plan does not allow this action.");
                 case "not-found" -> new NotFoundException("Document not found.");
                 case "conflict" -> new ConflictException("This document is not shared with anyone.");
+                case "gone" -> new GoneException("This invitation has expired.");
+                case "with-fields" ->
+                    new ForbiddenException("Not your invitation.") {
+                        @Override
+                        public @NonNull Map<String, String> publicFields() {
+                            return Map.of("invitedEmail", "j***@example.com");
+                        }
+                    };
                 case "upstream-unavailable" -> new UpstreamUnavailableException(new ConnectException("refused"));
                 case "too-many" -> new TooManyRequestsException("Too many attempts. Please try again later.", null);
                 case "with-code" ->

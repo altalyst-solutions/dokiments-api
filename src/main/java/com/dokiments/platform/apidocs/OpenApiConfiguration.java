@@ -59,6 +59,8 @@ class OpenApiConfiguration {
                 new StringSchema()
                         .description("Only for failures the web app handles in code, such as REAUTH_REQUIRED."));
         schema.setRequired(List.of("error"));
+        // A few failures carry more next to the message, such as invitedEmail; each endpoint describes its own.
+        schema.setAdditionalProperties(new StringSchema());
         return schema;
     }
 
