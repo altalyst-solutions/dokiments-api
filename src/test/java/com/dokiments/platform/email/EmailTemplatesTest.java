@@ -18,7 +18,9 @@ class EmailTemplatesTest {
         assertThat(email.html())
                 .contains("Jane Doe shared a document with you")
                 .contains("Jane Doe shared &quot;Service agreement&quot; with you on Dokiments for your signature.")
-                .contains("New to Dokiments? Create an account with this email address")
+                .contains(
+                        "New to Dokiments? The button above lets you preview the document, then create an account with"
+                                + " this email address to sign it. The link works for 14 days.")
                 .contains("href=\"https://dokiments.com/my-documents?tab=shared\"")
                 .contains(">Open document<")
                 .doesNotContain("made changes");
@@ -27,6 +29,21 @@ class EmailTemplatesTest {
                 .contains("Jane Doe shared \"Service agreement\" with you on Dokiments for your signature.")
                 .contains("Open document: https://dokiments.com/my-documents?tab=shared")
                 .doesNotContain("made changes");
+    }
+
+    @Test
+    void aCopySharedToViewIsWordedForViewing() {
+        var email = templates.render(viewOnly(false));
+        var updated = templates.render(viewOnly(true));
+
+        assertThat(email.text())
+                .contains("Jane Doe shared \"Letter\" with you on Dokiments to view.")
+                .contains("create an account with this email address to open it.")
+                .doesNotContain("sign");
+        assertThat(email.html()).contains("with you on Dokiments to view.").doesNotContain("for your signature");
+        assertThat(updated.text())
+                .contains("Jane Doe made changes to \"Letter\". Open it to review the latest version.")
+                .doesNotContain("and sign");
     }
 
     @Test
@@ -112,6 +129,19 @@ class EmailTemplatesTest {
                 .doesNotContain("localhost:3000/icons");
     }
 
+    private static EmailMessage viewOnly(boolean updated) {
+        return EmailMessage.of(
+                "recipient@example.com",
+                "Jane Doe shared \"Letter\" with you",
+                "sharing/document-shared",
+                Map.of(
+                        "updated", updated,
+                        "signable", false,
+                        "senderName", "Jane Doe",
+                        "documentName", "Letter",
+                        "url", "https://dokiments.com/shared/token"));
+    }
+
     private static EmailMessage shared(boolean updated, String senderName, String documentName) {
         return EmailMessage.of(
                 "recipient@example.com",
@@ -119,6 +149,7 @@ class EmailTemplatesTest {
                 "sharing/document-shared",
                 Map.of(
                         "updated", updated,
+                        "signable", true,
                         "senderName", senderName,
                         "documentName", documentName,
                         "url", "https://dokiments.com/my-documents?tab=shared"));
