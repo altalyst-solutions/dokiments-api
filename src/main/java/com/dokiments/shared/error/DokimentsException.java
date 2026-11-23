@@ -1,6 +1,7 @@
 package com.dokiments.shared.error;
 
 import java.io.Serial;
+import java.util.Map;
 import org.jspecify.annotations.Nullable;
 
 /**
@@ -21,6 +22,7 @@ public abstract sealed class DokimentsException extends RuntimeException
                 ForbiddenException,
                 NotFoundException,
                 ConflictException,
+                GoneException,
                 TooManyRequestsException,
                 UpstreamUnavailableException {
 
@@ -43,5 +45,15 @@ public abstract sealed class DokimentsException extends RuntimeException
      */
     public @Nullable String publicCode() {
         return null;
+    }
+
+    /**
+     * Fields the response carries next to {@code error}, for the few failures where the web app shows or uses more than
+     * the message, such as the address an invitation was sent to. Empty for almost every failure; the same rule as for
+     * {@link #publicCode()} applies: never add one just to describe the error. Like the message, they are sent as they
+     * are, so they must be safe to show the user.
+     */
+    public Map<String, String> publicFields() {
+        return Map.of();
     }
 }

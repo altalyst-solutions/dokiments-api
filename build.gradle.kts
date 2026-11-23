@@ -117,6 +117,7 @@ dependencies {
     testImplementation(libs.testcontainers.junit.jupiter)
     testImplementation(libs.spring.modulith.starter.test)
     testImplementation(libs.archunit.junit5)
+    testImplementation(libs.awaitility)
     testRuntimeOnly(libs.junit.platform.launcher)
 }
 

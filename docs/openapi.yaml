@@ -1922,6 +1922,111 @@ paths:
       summary: Remove a saved template
       tags:
       - Saved templates
+  /api/shared-invites/{token}:
+    get:
+      description: "Public: whoever has the link may see what it leads to, signed\
+        \ in or not. state is valid, with the invitation, or expired (after 14 days)\
+        \ or invalid, without it. Never cached."
+      operationId: previewInvite
+      parameters:
+      - in: path
+        name: token
+        required: true
+        schema:
+          type: string
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/InvitePreviewResponse"
+          description: What the link leads to
+        "404":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+          description: Sharing is off ("Not found.")
+        "500":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+          description: "An unexpected failure: \"Something went wrong. Please try\
+            \ again.\""
+        "503":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+          description: "An external service, such as Firestore, couldn't be reached:\
+            \ \"Couldn't reach an external service. Please try again in a moment.\""
+      summary: Preview an invitation
+      tags:
+      - Invitations
+  /api/shared-invites/{token}/accept:
+    post:
+      description: "Links the signed-in account to the shared copy, when its address\
+        \ is the invited one, and answers the copy's ID to open. An account that can\
+        \ open the copy already is sent straight to it."
+      operationId: acceptInvite
+      parameters:
+      - in: path
+        name: token
+        required: true
+        schema:
+          type: string
+      responses:
+        "200":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/AcceptedInviteResponse"
+          description: Linked
+        "401":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+          description: Not signed in
+        "403":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+          description: "Another address (\"This invitation was sent to a different\
+            \ email address.\"), with invitedEmail, the invited address masked, such\
+            \ as j***@example.com"
+        "404":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+          description: "A link that doesn't work, or no longer applies (\"This invitation\
+            \ is no longer valid.\"), or sharing is off"
+        "410":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+          description: More than 14 days old ("This invitation has expired.")
+        "500":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+          description: "An unexpected failure: \"Something went wrong. Please try\
+            \ again.\""
+        "503":
+          content:
+            application/json:
+              schema:
+                $ref: "#/components/schemas/Error"
+          description: "An external service, such as Firestore, couldn't be reached:\
+            \ \"Couldn't reach an external service. Please try again in a moment.\""
+      summary: Accept an invitation
+      tags:
+      - Invitations
   /api/templates:
     get:
       description: "Every active style, unfiltered, for the style tabs, and the active\
@@ -2037,6 +2142,11 @@ paths:
       - Templates
 components:
   schemas:
+    AcceptedInviteResponse:
+      type: object
+      properties:
+        sharedDocumentId:
+          type: string
     ActionResponse:
       type: object
       properties:
@@ -2239,6 +2349,8 @@ components:
       - email
     Error:
       type: object
+      additionalProperties:
+        type: string
       description: The body of every error response.
       properties:
         code:
@@ -2307,6 +2419,28 @@ components:
         type:
           type: string
           example: text
+    InvitePreviewResponse:
+      type: object
+      properties:
+        invite:
+          $ref: "#/components/schemas/InviteSummary"
+        state:
+          type: string
+          enum:
+          - valid
+          - expired
+          - invalid
+    InviteSummary:
+      type: object
+      properties:
+        name:
+          type: string
+        ownerEmail:
+          type: string
+        ownerName:
+          type: string
+        signable:
+          type: boolean
     LedgerEntryResponse:
       type: object
       properties:

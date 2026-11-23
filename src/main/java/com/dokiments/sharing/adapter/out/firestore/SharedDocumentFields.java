@@ -33,6 +33,7 @@ final class SharedDocumentFields {
     static final String OWNER_ID = "ownerId";
     static final String RECIPIENT_EMAILS = "recipientEmails";
     static final String RECIPIENT_UIDS = "recipientUids";
+    static final String ACCEPTED_INVITE = "acceptedInvite";
     static final String RECIPIENTS = "recipients";
     static final String UPDATED_AT = "updatedAt";
     static final String VIEWS = "views";
@@ -85,6 +86,23 @@ final class SharedDocumentFields {
     /** One opening, as it is stored under the viewer's ID in the copy's map of openings. */
     static Map<String, Object> of(View view) {
         return Map.of("email", view.email(), "viewedAt", timestamp(view.viewedAt()));
+    }
+
+    /** Only the recipients, which is all that noting an email changes. */
+    static Map<String, Object> recipientsOnly(SharedDocument document) {
+        return Map.of(
+                RECIPIENTS,
+                document.recipients().stream()
+                        .map(SharedDocumentFields::recipient)
+                        .toList());
+    }
+
+    /**
+     * The linked accounts, and the invitation that linked the newest one, which is what accepting an invitation
+     * changes. {@code acceptedInvite} is the web app's field naming the invitation as proof.
+     */
+    static Map<String, Object> inviteAcceptance(SharedDocument document, String tokenHash) {
+        return Map.of(RECIPIENT_UIDS, document.recipientUids(), ACCEPTED_INVITE, tokenHash);
     }
 
     private static Map<String, Object> recipientFields(SharedDocument document) {

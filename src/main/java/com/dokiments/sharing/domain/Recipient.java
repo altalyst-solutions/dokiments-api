@@ -49,4 +49,8 @@ public record Recipient(
     Recipient revoked(Instant now) {
         return new Recipient(email, emailedAt, invitedAt, RecipientStatus.REVOKED, now, signedAt, uid);
     }
+
+    Recipient withEmailedAt(List<Instant> times) {
+        return new Recipient(email, times, invitedAt, status, revokedAt, signedAt, uid);
+    }
 }

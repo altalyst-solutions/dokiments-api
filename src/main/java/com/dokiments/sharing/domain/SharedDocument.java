@@ -228,6 +228,49 @@ public record SharedDocument(
         return withRecipients(changed, List.of(), now);
     }
 
+    /**
+     * Whether an invitation may link {@code viewer}'s account to this copy, by adding it to {@link #recipientUids()}.
+     * These are the checks the web app's rules make: the copy isn't signed, it is still shared with the viewer's
+     * address, and the invitation is live, for this copy, from its owner, and sent to that same address. Holding the
+     * link is what proves the viewer owns the address, so it need not be verified.
+     */
+    public boolean acceptsInvite(Invite invite, Viewer viewer, Instant now) {
+        return !locked
+                && recipientEmails().contains(viewer.email())
+                && invite.sharedDocumentId().equals(id)
+                && invite.ownerId().equals(ownerId)
+                && invite.email().equals(viewer.email())
+                && invite.isLive(now);
+    }
+
+    /** This copy with {@code viewer}'s account among those that may open it. */
+    public SharedDocument withRecipientUid(Viewer viewer) {
+        if (recipientUids.contains(viewer.uid())) {
+            return this;
+        }
+        var uids = new ArrayList<>(recipientUids);
+        uids.add(viewer.uid());
+        return withRecipients(recipients, uids, updatedAt);
+    }
+
+    /**
+     * This copy with a sharing email to {@code email} noted at {@code sentAt}, for the email limits. Nothing is noted
+     * on a signed copy, or for someone it was never shared with. The time of the last change stays, so an email never
+     * reorders the lists.
+     */
+    public Optional<SharedDocument> withEmailSent(String email, Instant sentAt) {
+        if (locked
+                || recipients.stream().noneMatch(recipient -> recipient.email().equals(email))) {
+            return Optional.empty();
+        }
+        var changed = recipients.stream()
+                .map(recipient -> recipient.email().equals(email)
+                        ? recipient.withEmailedAt(ShareEmailLimits.withSend(recipient.emailedAt(), sentAt))
+                        : recipient)
+                .toList();
+        return Optional.of(withRecipients(changed, recipientUids, updatedAt));
+    }
+
     private SharedDocument withRecipients(List<Recipient> changed, List<String> uids, Instant now) {
         return new SharedDocument(
                 id,

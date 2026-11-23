@@ -1,15 +1,21 @@
 package com.dokiments.sharing.adapter.in.web;
 
 import static org.assertj.core.api.Assertions.assertThat;
+import static org.awaitility.Awaitility.await;
 import static org.mockito.ArgumentMatchers.any;
+import static org.mockito.ArgumentMatchers.argThat;
 import static org.mockito.Mockito.after;
+import static org.mockito.Mockito.atLeastOnce;
 import static org.mockito.Mockito.doAnswer;
 import static org.mockito.Mockito.timeout;
 import static org.mockito.Mockito.verify;
+import static org.mockito.Mockito.when;
 
 import com.dokiments.platform.email.EmailMessage;
+import com.dokiments.platform.email.EmailResult;
 import com.dokiments.platform.email.EmailSender;
 import com.dokiments.platform.firestore.FirestoreCalls;
+import com.dokiments.sharing.domain.InviteToken;
 import com.dokiments.support.FirebaseEmulatorsContainer;
 import com.dokiments.support.IntegrationTest;
 import com.google.cloud.Timestamp;
@@ -23,6 +29,8 @@ import java.net.URI;
 import java.net.http.HttpClient;
 import java.net.http.HttpRequest;
 import java.net.http.HttpResponse;
+import java.time.Duration;
+import java.time.Instant;
 import java.util.ArrayList;
 import java.util.List;
 import java.util.Map;
@@ -326,7 +334,7 @@ class SharingIT {
                                 firestore.document("sharedDocuments/" + copyId).get())
                         .getBoolean("locked"))
                 .isFalse();
-        verify(emailSender, after(500).never()).send(any());
+        verify(emailSender, after(500).never()).send(argThat(SharingIT::isSignedEmail));
     }
 
     // Opening
@@ -443,7 +451,14 @@ class SharingIT {
         Cookie verified = verifyAndSignIn(client);
         String copyId = jane.uid() + "_" + doc;
         var senders = new ConcurrentLinkedQueue<Thread>();
-        doAnswer(call -> senders.add(Thread.currentThread())).when(emailSender).send(any());
+        doAnswer(call -> {
+                    if (isSignedEmail(call.getArgument(0))) {
+                        senders.add(Thread.currentThread());
+                    }
+                    return null;
+                })
+                .when(emailSender)
+                .send(any());
 
         MvcTestResult signed = sign(verified, copyId, "  Client Name ");
 
@@ -466,16 +481,20 @@ class SharingIT {
         assertThat(stored.get(FieldPath.of("signatures", client.uid(), "signedAt")))
                 .isInstanceOf(Timestamp.class);
 
-        var email = ArgumentCaptor.forClass(EmailMessage.class);
-        verify(emailSender, timeout(5000)).send(email.capture());
-        assertThat(email.getValue().to()).isEqualTo(jane.email());
-        assertThat(email.getValue().subject()).isEqualTo("Client signed \"For Acme\"");
-        assertThat(email.getValue().template()).isEqualTo("sharing/document-signed");
-        assertThat(email.getValue().variables())
-                .containsEntry("signerName", "Client")
-                .containsEntry("documentName", "For Acme");
-        assertThat((String) email.getValue().variables().get("url")).endsWith("/my-documents/shared/" + copyId);
-        assertThat(email.getValue().idempotencyKey()).startsWith("signed-");
+        // Sharing sends its own email; this test is about the one the signature sends.
+        verify(emailSender, timeout(5000)).send(argThat(SharingIT::isSignedEmail));
+        var captured = ArgumentCaptor.forClass(EmailMessage.class);
+        verify(emailSender, atLeastOnce()).send(captured.capture());
+        EmailMessage email = captured.getAllValues().stream()
+                .filter(SharingIT::isSignedEmail)
+                .findFirst()
+                .orElseThrow();
+        assertThat(email.to()).isEqualTo(jane.email());
+        assertThat(email.subject()).isEqualTo("Client signed \"For Acme\"");
+        assertThat(email.template()).isEqualTo("sharing/document-signed");
+        assertThat(email.variables()).containsEntry("signerName", "Client").containsEntry("documentName", "For Acme");
+        assertThat((String) email.variables().get("url")).endsWith("/my-documents/shared/" + copyId);
+        assertThat(email.idempotencyKey()).startsWith("signed-");
         // The answer doesn't wait for the email: it is sent from another, virtual, thread.
         assertThat(senders).singleElement().satisfies(sender -> {
             assertThat(sender).isNotSameAs(Thread.currentThread());
@@ -530,7 +549,7 @@ class SharingIT {
         String denied = "You do not have access to this shared document.";
         assertError(open(verified, copyId), 404, denied);
         assertError(sign(verified, copyId, "Client"), 404, denied);
-        verify(emailSender, after(500).never()).send(any());
+        verify(emailSender, after(500).never()).send(argThat(SharingIT::isSignedEmail));
     }
 
     @Test
@@ -556,7 +575,7 @@ class SharingIT {
         var stored = FirestoreCalls.await(
                 firestore.document("sharedDocuments/" + copyId).get());
         assertThat((Map<?, ?>) Objects.requireNonNull(stored.get("signatures"))).hasSize(1);
-        verify(emailSender, timeout(5000).times(1)).send(any());
+        verify(emailSender, timeout(5000).times(1)).send(argThat(SharingIT::isSignedEmail));
     }
 
     // Notifications
@@ -587,7 +606,222 @@ class SharingIT {
         assertThat(notificationsOf(client.session(), "document-shared")).isEmpty();
     }
 
+    // The share email and its invitation
+
+    @Test
+    void theShareEmailCarriesAnInvitationLinkThatWorksForFourteenDays() {
+        var jane = signUp("Jane");
+        String doc = create(jane, SIGNABLE);
+        var client = signUp("Client");
+
+        EmailMessage email = shareAndCaptureEmail(jane, doc, client.email());
+
+        String copyId = jane.uid() + "_" + doc;
+        assertThat(email.to()).isEqualTo(client.email());
+        assertThat(email.subject()).isEqualTo("Jane shared \"For Acme\" with you");
+        assertThat(email.variables())
+                .containsEntry("updated", false)
+                .containsEntry("signable", true)
+                .containsEntry("senderName", "Jane")
+                .containsEntry("documentName", "For Acme");
+        assertThat(email.idempotencyKey()).startsWith("share-");
+        String token = tokenIn(email);
+
+        var invite = FirestoreCalls.await(
+                firestore.document("sharedInvites/" + InviteToken.hash(token)).get());
+        assertThat(invite.getString("email")).isEqualTo(client.email());
+        assertThat(invite.getString("ownerId")).isEqualTo(jane.uid());
+        assertThat(invite.getString("sharedDocumentId")).isEqualTo(copyId);
+        assertThat(invite.getString("name")).isEqualTo("For Acme");
+        var created = Objects.requireNonNull(invite.getTimestamp("createdAt"))
+                .toDate()
+                .toInstant();
+        assertThat(Objects.requireNonNull(invite.getTimestamp("expiresAt"))
+                        .toDate()
+                        .toInstant())
+                .isEqualTo(created.plus(Duration.ofDays(14)));
+        awaitTrue(() -> emailedAt(copyId).size() == 1);
+    }
+
+    @Test
+    void sharingAgainWithinTenMinutesSendsNoSecondEmail() {
+        var jane = signUp("Jane");
+        String doc = create(jane, SIGNABLE);
+        var client = signUp("Client");
+        shareAndCaptureEmail(jane, doc, client.email());
+        awaitTrue(() -> emailedAt(jane.uid() + "_" + doc).size() == 1);
+
+        assertThat(share(jane, doc, client.email())).hasStatus(200);
+
+        verify(emailSender, after(1000).times(1)).send(argThat(SharingIT::isShareEmail));
+    }
+
+    @Test
+    void anEmailThatCouldntBeSentLeavesNoInvitation() {
+        var jane = signUp("Jane");
+        String doc = create(jane, SIGNABLE);
+        when(emailSender.send(any())).thenReturn(new EmailResult.NotSent(EmailResult.Reason.PROVIDER_ERROR));
+
+        share(jane, doc, "client@acme.example");
+
+        verify(emailSender, timeout(5000)).send(argThat(SharingIT::isShareEmail));
+        String copyId = jane.uid() + "_" + doc;
+        awaitTrue(() -> invitesFor(copyId) == 0);
+        assertThat(emailedAt(copyId)).isEmpty();
+    }
+
+    // Invitations
+
+    @Test
+    void anInvitationLinkShowsItsPreviewToAnyoneAndIsNeverCached() {
+        var jane = signUp("Jane");
+        String token = tokenIn(shareAndCaptureEmail(jane, create(jane, SIGNABLE), "client@acme.example"));
+
+        MvcTestResult preview = mvc.get().uri("/api/shared-invites/" + token).exchange();
+
+        assertThat(preview)
+                .hasStatusOk()
+                .bodyJson()
+                .isStrictlyEqualTo("{\"invite\":{\"name\":\"For Acme\",\"ownerEmail\":\"" + jane.email()
+                        + "\",\"ownerName\":\"Jane\",\"signable\":true},\"state\":\"valid\"}");
+        assertThat(preview.getResponse().getHeader("Cache-Control")).isEqualTo("no-store");
+        for (String unknown : List.of("x".repeat(43), "not-a-token")) {
+            assertThat(mvc.get().uri("/api/shared-invites/" + unknown).exchange())
+                    .as(unknown)
+                    .bodyJson()
+                    .isStrictlyEqualTo("{\"state\":\"invalid\"}");
+        }
+
+        expire(token);
+        assertThat(mvc.get().uri("/api/shared-invites/" + token).exchange())
+                .bodyJson()
+                .isStrictlyEqualTo("{\"state\":\"expired\"}");
+    }
+
+    @Test
+    void acceptingLinksTheInvitedAccountWhichCanThenOpenTheCopyWithoutAVerifiedAddress() {
+        var jane = signUp("Jane");
+        String doc = create(jane, SIGNABLE);
+        var client = signUp("Client");
+        String token = tokenIn(shareAndCaptureEmail(jane, doc, client.email()));
+        String copyId = jane.uid() + "_" + doc;
+        assertThat(open(client.session(), copyId)).hasStatus(404);
+
+        assertThat(accept(client.session(), token))
+                .hasStatusOk()
+                .bodyJson()
+                .isStrictlyEqualTo("{\"sharedDocumentId\":\"" + copyId + "\"}");
+
+        var stored = FirestoreCalls.await(
+                firestore.document("sharedDocuments/" + copyId).get());
+        assertThat(stored.get("recipientUids")).isEqualTo(List.of(client.uid()));
+        assertThat(stored.getString("acceptedInvite")).isEqualTo(InviteToken.hash(token));
+        assertThat(open(client.session(), copyId)).hasStatusOk();
+        assertThat(accept(client.session(), token)).hasStatusOk();
+    }
+
+    @Test
+    void anInvitationIsRefusedForTheWebAppsReasons() {
+        var jane = signUp("Jane");
+        String doc = create(jane, SIGNABLE);
+        var client = signUp("Client");
+        String token = tokenIn(shareAndCaptureEmail(jane, doc, client.email()));
+        var eve = signUp("Eve");
+
+        assertThat(accept(eve.session(), token))
+                .hasStatus(403)
+                .bodyJson()
+                .isStrictlyEqualTo("{\"error\":\"This invitation was sent to a different email address.\","
+                        + "\"invitedEmail\":\"u***@example.com\"}");
+        assertError(accept(client.session(), "x".repeat(43)), 404, "This invitation is no longer valid.");
+        assertThat(call(HttpMethod.POST, "/api/shared-invites/" + token + "/accept", null, null))
+                .hasStatus(401);
+
+        expire(token);
+        assertError(accept(client.session(), token), 410, "This invitation has expired.");
+    }
+
+    @Test
+    void takingTheCopyBackEndsItsInvitations() {
+        var jane = signUp("Jane");
+        String doc = create(jane, SIGNABLE);
+        var client = signUp("Client");
+        String token = tokenIn(shareAndCaptureEmail(jane, doc, client.email()));
+        String copyId = jane.uid() + "_" + doc;
+
+        assertThat(revoke(jane, copyId)).hasStatusOk();
+
+        assertThat(invitesFor(copyId)).isZero();
+        assertError(accept(client.session(), token), 404, "This invitation is no longer valid.");
+        assertThat(mvc.get().uri("/api/shared-invites/" + token).exchange())
+                .bodyJson()
+                .isStrictlyEqualTo("{\"state\":\"invalid\"}");
+    }
+
     // Helpers
+
+    /** The email sharing sends to the person shared with. */
+    private static boolean isShareEmail(@Nullable EmailMessage message) {
+        return message != null && message.template().equals("sharing/document-shared");
+    }
+
+    /** Shares, with emails going out, and returns the email the recipient got. */
+    private EmailMessage shareAndCaptureEmail(Account owner, String documentId, String email) {
+        when(emailSender.send(any())).thenReturn(new EmailResult.Sent("email-id"));
+        assertThat(share(owner, documentId, email).getResponse().getStatus()).isIn(200, 201);
+        verify(emailSender, timeout(5000))
+                .send(argThat(message -> isShareEmail(message) && message.to().equals(email)));
+        var captured = ArgumentCaptor.forClass(EmailMessage.class);
+        verify(emailSender, atLeastOnce()).send(captured.capture());
+        return captured.getAllValues().stream()
+                .filter(message -> isShareEmail(message) && message.to().equals(email))
+                .reduce((first, second) -> second)
+                .orElseThrow();
+    }
+
+    /** The invitation token in a share email's link. */
+    private static String tokenIn(EmailMessage email) {
+        String url = (String) Objects.requireNonNull(email.variables().get("url"));
+        assertThat(url).matches(".*/shared/[A-Za-z0-9_-]{43}");
+        return url.substring(url.lastIndexOf('/') + 1);
+    }
+
+    private MvcTestResult accept(Cookie session, String token) {
+        return call(HttpMethod.POST, "/api/shared-invites/" + token + "/accept", null, session);
+    }
+
+    /** Moves an invitation's end into the past. */
+    private void expire(String token) {
+        FirestoreCalls.await(firestore
+                .document("sharedInvites/" + InviteToken.hash(token))
+                .update("expiresAt", FirestoreCalls.toTimestamp(Instant.now().minusSeconds(1))));
+    }
+
+    private int invitesFor(String sharedDocumentId) {
+        return FirestoreCalls.await(firestore
+                        .collection("sharedInvites")
+                        .whereEqualTo("sharedDocumentId", sharedDocumentId)
+                        .get())
+                .size();
+    }
+
+    private List<?> emailedAt(String sharedDocumentId) {
+        var stored = FirestoreCalls.await(
+                firestore.document("sharedDocuments/" + sharedDocumentId).get());
+        var recipients = (List<?>) Objects.requireNonNull(stored.get("recipients"));
+        var first = (Map<?, ?>) recipients.getFirst();
+        return first.get("emailedAt") instanceof List<?> times ? times : List.of();
+    }
+
+    /** Waits for what the email listener does after the answer, for up to five seconds. */
+    private static void awaitTrue(Callable<Boolean> condition) {
+        await().atMost(Duration.ofSeconds(5)).until(condition);
+    }
+
+    /** The email the owner gets when their copy is signed, as opposed to the one sharing sends. */
+    private static boolean isSignedEmail(@Nullable EmailMessage message) {
+        return message != null && message.template().equals("sharing/document-signed");
+    }
 
     private static final String PASSWORD = "secret123";
 
