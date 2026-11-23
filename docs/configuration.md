@@ -226,6 +226,8 @@ When adding a setting, add it to `.env.example` and to the table above.
 | `POST /api/documents/{id}/share`, `POST /api/documents/shared/{id}/revoke` | Signed in, CSRF token, `DOCUMENT_SHARING_ENABLED` | Sharing a copy of a document with one person (for their signature when its template has a recipient signature, to view otherwise), and taking it back |
 | `GET /api/documents/shared` (`?by=me` for one's own), `GET /api/documents/share-recipients` | Signed in, `DOCUMENT_SHARING_ENABLED` | The copies shared with the user (for a verified address, or an account an invitation link linked) or by them, and everyone they have shared with |
 | `GET /api/documents/shared/{id}`, `POST /api/documents/shared/{id}/sign` | Signed in (CSRF token to sign), `DOCUMENT_SHARING_ENABLED` | Opening a copy as its owner or recipient (a recipient's first opening is noted for the owner), and signing it with a typed name, which locks it and emails the owner afterwards |
+| `GET /api/shared-invites/{token}` | Public, `DOCUMENT_SHARING_ENABLED` | What an invitation link from the share email leads to (`valid`, `expired` after 14 days, or `invalid`), never cached |
+| `POST /api/shared-invites/{token}/accept` | Signed in, CSRF token, `DOCUMENT_SHARING_ENABLED` | Links the account under the invited address to the shared copy, without needing a verified address |
 | `/swagger-ui.html`, `/v3/api-docs` | `dev` only | Swagger UI and the API description. Elsewhere they don't exist and answer `401`. |
 | Everything else | Denied (`401`) | Opened explicitly as features are added |
 
@@ -243,6 +245,7 @@ wording the web app already expects:
 | `403` | Signed in, but not allowed to do this | Specific reason, or `Forbidden.` |
 | `404` | Doesn't exist, or belongs to someone else | Specific, such as `Document not found.`, or `Not found.` |
 | `409` | Clashes with the current state | Specific, such as `This document is not shared with anyone.` |
+| `410` | It existed, but no longer works, such as an invitation link older than 14 days | Specific, such as `This invitation has expired.` |
 | `429` | Too many attempts in a short time, for example verification emails | Specific, such as `Too many attempts. Please try again later.` |
 | `503` | An external service couldn't be reached | `Couldn't reach an external service. Please try again in a moment.` |
 | `500` | Anything unexpected | `Something went wrong. Please try again.` |
@@ -252,3 +255,7 @@ What exactly was wrong (which field failed validation, the underlying exception)
 A few errors the web app handles in code rather than by showing the message also carry a `code`. So far there is one:
 `403 {"code":"REAUTH_REQUIRED","error":"..."}` when a password change needs the current password first
 (`/api/auth/reauthenticate`).
+
+One error carries an extra field the web app shows: accepting an invitation under another address answers
+`403 {"error":"This invitation was sent to a different email address.","invitedEmail":"j***@example.com"}`, with the
+invited address masked.

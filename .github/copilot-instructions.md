@@ -178,7 +178,7 @@ Rules, enforced by `HexagonalArchitectureTest` (ArchUnit) and `ModularityTest` (
 ## Errors
 
 - For an expected failure, throw one of the exceptions in `com.dokiments.shared.error` (`InvalidRequestException`,
-  `UnauthenticatedException`, `ForbiddenException`, `NotFoundException`, `ConflictException`,
+  `UnauthenticatedException`, `ForbiddenException`, `NotFoundException`, `ConflictException`, `GoneException`,
   `TooManyRequestsException`, `UpstreamUnavailableException`). `platform.web.ApiExceptionHandler` turns them into the
   status code and the `{ "error": "..." }` body. Never build error responses in controllers.
 - The exception's message is sent to the client as is, so it must be written for users and never contain internal
@@ -186,7 +186,8 @@ Rules, enforced by `HexagonalArchitectureTest` (ArchUnit) and `ModularityTest` (
 - Text fields in request bodies accept only text (`platform.web.StrictJsonConfiguration`), as the web app's checks
   do: `{"phone": 123}` is an invalid body.
 - An error carries a `code` (`DokimentsException.publicCode`) only when the web app acts on it in code, such as
-  `REAUTH_REQUIRED`. Never add one just to describe the error.
+  `REAUTH_REQUIRED`. Never add one just to describe the error. The same goes for extra fields next to `error`
+  (`DokimentsException.publicFields`), such as an invitation's masked `invitedEmail`.
 - For a more specific failure in a module, extend the matching type (for example a `DocumentLockedException` extending
   `ConflictException`). Don't add new types to the sealed `DokimentsException` hierarchy without also mapping them in
   `ApiExceptionHandler`; the compiler enforces this.
