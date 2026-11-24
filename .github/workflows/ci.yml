@@ -110,7 +110,8 @@ jobs:
           load: true
           tags: dokiments-firebase-emulators:local
           cache-from: type=gha,scope=firebase-emulators
-          cache-to: type=gha,scope=firebase-emulators,mode=max
+          # Only pushes to main write the cache: see "Build image" in the Docker job for why.
+          cache-to: ${{ github.event_name == 'push' && 'type=gha,scope=firebase-emulators,mode=max' || '' }}
 
       # Formatting, Error Prone and NullAway, unit and architecture tests, integration
       # tests against real Redis and Firestore emulator containers, and coverage. Docker
@@ -183,12 +184,20 @@ jobs:
           # A scope of its own, shared with security-scan.yml, so the emulators' image
           # (cached by the build job) and this one never replace each other's cache.
           cache-from: type=gha,scope=dokiments-api
-          cache-to: type=gha,scope=dokiments-api,mode=max
+          # Only pushes to main write the Docker caches, and pull requests only read them. A
+          # pull request can read main's caches but main can't read a pull request's, so a pull
+          # request's copy would only be used by its own later runs, and each one takes
+          # gigabytes of the repository's cache space. Once that space is full, GitHub deletes
+          # the caches used least recently, which can be main's. Pull requests still reuse
+          # main's dependency layer, so a change to the code only compiles.
+          cache-to: ${{ github.event_name == 'push' && 'type=gha,scope=dokiments-api,mode=max' || '' }}
 
       # Trivy downloads its vulnerability database on every run. Caching it per day avoids
       # downloading it again in every job and makes rate limits on the download unlikely.
-      - name: Cache the vulnerability database
-        uses: actions/cache@v6
+      # Restoring falls back to the latest earlier day; Trivy then downloads only what changed.
+      - name: Restore the vulnerability database
+        id: trivy-db
+        uses: actions/cache/restore@v6
         with:
           path: ~/.cache/trivy
           key: trivy-db-${{ steps.date.outputs.today }}
@@ -206,8 +215,8 @@ jobs:
       - name: Scan image for vulnerabilities
         run: |
           # Run as the runner user, not root, so the downloaded database belongs to it and the
-          # cache step can save it at the end of the job. --group-add keeps access to the Docker
-          # socket, which Trivy needs to read the image.
+          # save step below can store it. --group-add keeps access to the Docker socket, which
+          # Trivy needs to read the image.
           mkdir -p "$HOME/.cache/trivy"
           docker run --rm \
             --user "$(id -u):$(id -g)" \
@@ -226,3 +235,12 @@ jobs:
               --exit-code 1 \
               --no-progress \
               dokiments-api:ci
+
+      # Like the Docker caches, only main saves the database (about 1 GB), once a day. It is
+      # saved even when the scan found a vulnerability, because the database is still good.
+      - name: Save the vulnerability database
+        if: ${{ !cancelled() && github.event_name == 'push' && steps.trivy-db.outputs.cache-hit != 'true' }}
+        uses: actions/cache/save@v6
+        with:
+          path: ~/.cache/trivy
+          key: ${{ steps.trivy-db.outputs.cache-primary-key }}

@@ -125,10 +125,13 @@ can be merged:
 2. **Build and test:** `./gradlew build`, including the integration tests. The test and coverage reports are attached
    to the run. The Firebase emulators' image is built first with GitHub's cache, so Gradle doesn't build it again
    (`FIREBASE_EMULATORS_IMAGE_BUILT=true`).
-3. **Docker image**, at the same time as the build: the image builds, and [Trivy](https://trivy.dev/) scans it. Its
-   layers are kept in GitHub's cache, so a change to the code reuses the dependency layer. The job fails if the image
-   contains a HIGH or CRITICAL vulnerability that already has a fix, in the Ubuntu packages or in any library inside
-   the jar.
+3. **Docker image**, at the same time as the build: the image builds, and [Trivy](https://trivy.dev/) scans it. The
+   job fails if the image contains a HIGH or CRITICAL vulnerability that already has a fix, in the Ubuntu packages or
+   in any library inside the jar.
+
+The image's layers, the emulators' image and Trivy's vulnerability database are kept in GitHub's cache, so a change to
+the code reuses the dependency layer. Only pushes to `main` write these caches, and pull requests read `main`'s: a pull
+request's own copy would take gigabytes and could push `main`'s out of GitHub's size limit for the repository.
 
 **Security scan** (`.github/workflows/security-scan.yml`) rebuilds the image from `main` every Monday and scans it
 the same way. New vulnerabilities are published all the time, including for code that hasn't changed, and this
