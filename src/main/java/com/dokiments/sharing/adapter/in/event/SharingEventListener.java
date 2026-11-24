@@ -1,6 +1,8 @@
 package com.dokiments.sharing.adapter.in.event;
 
 import com.dokiments.sharing.application.port.in.NotifyOwners;
+import com.dokiments.sharing.application.port.in.NotifyRecipients;
+import com.dokiments.sharing.domain.DocumentShared;
 import com.dokiments.sharing.domain.DocumentSigned;
 import org.springframework.context.event.EventListener;
 import org.springframework.scheduling.annotation.Async;
@@ -14,9 +16,17 @@ import org.springframework.stereotype.Component;
 class SharingEventListener {
 
     private final NotifyOwners owners;
+    private final NotifyRecipients recipients;
 
-    SharingEventListener(NotifyOwners owners) {
+    SharingEventListener(NotifyOwners owners, NotifyRecipients recipients) {
         this.owners = owners;
+        this.recipients = recipients;
+    }
+
+    @Async
+    @EventListener
+    void on(DocumentShared event) {
+        recipients.documentShared(event);
     }
 
     @Async

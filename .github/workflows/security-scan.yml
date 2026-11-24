@@ -58,8 +58,9 @@ jobs:
           build-args: |
             GIT_COMMIT=${{ github.sha }}
             SECURITY_UPDATES_DATE=${{ steps.date.outputs.today }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+          # The same cache as CI's image build (ci.yml), so a weekly run reuses its layers.
+          cache-from: type=gha,scope=dokiments-api
+          cache-to: type=gha,scope=dokiments-api,mode=max
 
       - name: Cache the vulnerability database
         uses: actions/cache@v6

@@ -3,6 +3,7 @@ package com.dokiments.platform.web;
 import com.dokiments.shared.error.ConflictException;
 import com.dokiments.shared.error.DokimentsException;
 import com.dokiments.shared.error.ForbiddenException;
+import com.dokiments.shared.error.GoneException;
 import com.dokiments.shared.error.InvalidRequestException;
 import com.dokiments.shared.error.NotFoundException;
 import com.dokiments.shared.error.TooManyRequestsException;
@@ -59,6 +60,7 @@ class ApiExceptionHandler {
             case ForbiddenException _ -> HttpStatus.FORBIDDEN;
             case NotFoundException _ -> HttpStatus.NOT_FOUND;
             case ConflictException _ -> HttpStatus.CONFLICT;
+            case GoneException _ -> HttpStatus.GONE;
             case TooManyRequestsException _ -> HttpStatus.TOO_MANY_REQUESTS;
             case UpstreamUnavailableException _ -> HttpStatus.SERVICE_UNAVAILABLE;
         };
@@ -73,7 +75,8 @@ class ApiExceptionHandler {
                     status.value(),
                     exception.publicMessage());
         }
-        return ResponseEntity.status(status).body(new ErrorBody(exception.publicMessage(), exception.publicCode()));
+        return ResponseEntity.status(status)
+                .body(new ErrorBody(exception.publicMessage(), exception.publicCode(), exception.publicFields()));
     }
 
     /**

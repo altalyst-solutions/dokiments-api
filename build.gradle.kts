@@ -117,6 +117,7 @@ dependencies {
     testImplementation(libs.testcontainers.junit.jupiter)
     testImplementation(libs.spring.modulith.starter.test)
     testImplementation(libs.archunit.junit5)
+    testImplementation(libs.awaitility)
     testRuntimeOnly(libs.junit.platform.launcher)
 }
 
@@ -209,7 +210,7 @@ tasks.test {
     }
 }
 
-val integrationTest by tasks.registering(Test::class) {
+val integrationTest = tasks.register<Test>("integrationTest") {
     description = "Runs integration tests against real infrastructure (Testcontainers)."
     group = LifecycleBasePlugin.VERIFICATION_GROUP
     testClassesDirs = sourceSets.test.get().output.classesDirs
@@ -250,7 +251,7 @@ fun dockerCommand(): String {
 //
 // On a network with a TLS-inspecting proxy, set EXTRA_CA_PEM to the proxy's root certificate
 // (as for `docker compose --profile full up --build`): it is passed to the build as a secret.
-val buildFirebaseEmulatorsImage by tasks.registering(Exec::class) {
+val buildFirebaseEmulatorsImage = tasks.register<Exec>("buildFirebaseEmulatorsImage") {
     description = "Builds the Firebase emulators image used by the integration tests."
     group = LifecycleBasePlugin.VERIFICATION_GROUP
     val extraCa = providers.environmentVariable("EXTRA_CA_PEM").orNull?.ifBlank { null }
@@ -263,11 +264,17 @@ val buildFirebaseEmulatorsImage by tasks.registering(Exec::class) {
     )
     // Always handed to Docker, which knows whether anything changed.
     outputs.upToDateWhen { false }
+    // CI builds the image itself before Gradle runs, with GitHub's Docker cache, which this plain `docker build` can't
+    // use; it sets FIREBASE_EMULATORS_IMAGE_BUILT=true so the image isn't built a second time.
+    val builtAlready = providers.environmentVariable("FIREBASE_EMULATORS_IMAGE_BUILT").map {
+        it == "true"
+    }.orElse(false)
+    onlyIf("the image wasn't built before Gradle ran") { !builtAlready.get() }
 }
 
 // `./gradlew updateOpenApi` rewrites docs/openapi.yaml from the code, after a deliberate change to the
 // API. OpenApiSpecIT then passes again, and the change to the file shows the new contract in review.
-val updateOpenApi by tasks.registering(Test::class) {
+val updateOpenApi = tasks.register<Test>("updateOpenApi") {
     description = "Rewrites docs/openapi.yaml from the application's API description."
     group = "documentation"
     testClassesDirs = sourceSets.test.get().output.classesDirs
@@ -354,6 +361,22 @@ tasks.bootRun {
 
 // Prints the version worked out above, so CI can tag and label the Docker image with
 // exactly the version Gradle uses, without repeating the Git logic in a shell script.
+// `./gradlew downloadDependencies` downloads everything compiling and packaging the jar needs, without the code. The
+// Dockerfile runs it in a layer of its own before copying the code in, so a build cache keeps the dependencies until the
+// build definition changes, instead of downloading them again for every change to the code.
+tasks.register("downloadDependencies") {
+    description = "Downloads the dependencies compiling and packaging the application needs."
+    group = "build setup"
+    // Resolving the inputs is the work: Gradle downloads them to fingerprint them before the task runs.
+    inputs.files(
+        configurations.named("compileClasspath"),
+        // Includes Error Prone and NullAway, which the compiler runs.
+        configurations.named("annotationProcessor"),
+        configurations.named("productionRuntimeClasspath"),
+    )
+    doLast { logger.lifecycle("Dependencies downloaded.") }
+}
+
 // Usage: ./gradlew -q printVersion
 tasks.register("printVersion") {
     description = "Prints the version Gradle works out from Git tags."

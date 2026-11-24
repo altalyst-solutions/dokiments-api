@@ -114,6 +114,12 @@ class SecurityConfig {
                                 "/api/documents/shared/*/sign",
                                 "/api/documents/shared/*/revoke")
                         .authenticated()
+                        // An invitation link's preview is public: the link's secret is the key, and someone invited may
+                        // not have an account yet. Accepting it needs one.
+                        .requestMatchers(HttpMethod.GET, "/api/shared-invites/*")
+                        .permitAll()
+                        .requestMatchers(HttpMethod.POST, "/api/shared-invites/*/accept")
+                        .authenticated()
                         .anyRequest()
                         .denyAll())
                 // Cross-site request forgery tricks a signed-in browser into sending a request with its cookies.

@@ -1,12 +1,15 @@
 <!DOCTYPE html>
 <!--/*
-  Sent to the recipient when a document is shared with them for signature, or shared again after changes.
+  Sent to the recipient when a document is shared with them, or shared again after changes. A copy is shared either
+  for their signature or, when its template has no recipient signature, to view.
 
-  Values: senderName and documentName (already cleaned with EmailLabels), updated (true when shared again) and url
-  (the web app's "Shared with me" page).
+  Values: senderName and documentName (already cleaned with EmailLabels), updated (true when shared again), signable
+  (true when they are asked to sign) and url (the invitation link, or the web app's "Shared with me" page when no
+  invitation could be made).
 */-->
 <html lang="en" xmlns:th="http://www.thymeleaf.org" th:remove="tag">
 <!--/*@thymesVar id="updated" type="java.lang.Boolean"*/-->
+<!--/*@thymesVar id="signable" type="java.lang.Boolean"*/-->
 <!--/*@thymesVar id="senderName" type="java.lang.String"*/-->
 <!--/*@thymesVar id="documentName" type="java.lang.String"*/-->
 <!--/*@thymesVar id="url" type="java.lang.String"*/-->
@@ -20,16 +23,17 @@
 <th:block th:remove="all">
 <div th:fragment="content">
   <p style="margin:0 0 16px;" th:if="${updated}"
-     th:text="|${senderName} made changes to &quot;${documentName}&quot;. Open it to review the latest version and sign.|">
+     th:text="|${senderName} made changes to &quot;${documentName}&quot;. Open it to review the latest version${signable ? ' and sign' : ''}.|">
     Jane made changes to "Service agreement". Open it to review the latest version and sign.
   </p>
   <p style="margin:0 0 16px;" th:unless="${updated}"
-     th:text="|${senderName} shared &quot;${documentName}&quot; with you on ${siteName} for your signature.|">
+     th:text="|${senderName} shared &quot;${documentName}&quot; with you on ${siteName} ${signable ? 'for your signature' : 'to view'}.|">
     Jane shared "Service agreement" with you on Dokiments for your signature.
   </p>
   <p style="margin:0 0 16px;"
-     th:text="|New to ${siteName}? Create an account with this email address and the document will be waiting under Shared with me.|">
-    New to Dokiments? Create an account with this email address and the document will be waiting under Shared with me.
+     th:text="|New to ${siteName}? The button above lets you preview the document, then create an account with this email address to ${signable ? 'sign' : 'open'} it. The link works for 14 days.|">
+    New to Dokiments? The button above lets you preview the document, then create an account with this email address
+    to sign it. The link works for 14 days.
   </p>
 </div>
 </th:block>

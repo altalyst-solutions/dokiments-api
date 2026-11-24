@@ -1,6 +1,7 @@
 package com.dokiments.sharing.application.port.out;
 
 import com.dokiments.documents.OwnedDocument;
+import com.dokiments.sharing.domain.Invite;
 import com.dokiments.sharing.domain.Share;
 import com.dokiments.sharing.domain.ShareLedgerEntry;
 import com.dokiments.sharing.domain.SharedDocument;
@@ -62,6 +63,20 @@ public interface SharedDocumentStore {
      * that has just been signed. Does nothing when there is nothing to note.
      */
     void recordView(String sharedDocumentId, Viewer viewer, Instant now);
+
+    /**
+     * Notes on the copy that {@code email} was sent a sharing email at {@code sentAt}, for the email limits, as one
+     * step with reading it. Nothing is noted on a signed copy, or for someone it was never shared with.
+     */
+    void recordEmail(String sharedDocumentId, String email, Instant sentAt);
+
+    /**
+     * Links {@code viewer}'s account to the copy an invitation is for, as one step with checking that the invitation
+     * may do so ({@code SharedDocument.acceptsInvite}).
+     *
+     * @return whether the account is linked; {@code false} when the copy is gone or the invitation no longer applies
+     */
+    boolean acceptInvite(Invite invite, Viewer viewer, Instant now);
 
     /**
      * What to share.

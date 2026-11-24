@@ -6,6 +6,7 @@ import com.dokiments.shared.error.DokimentsException;
 import com.dokiments.shared.error.NotFoundException;
 import com.dokiments.sharing.application.port.out.SharedDocumentStore;
 import com.dokiments.sharing.domain.DocumentLockedException;
+import com.dokiments.sharing.domain.Invite;
 import com.dokiments.sharing.domain.NotRecipientException;
 import com.dokiments.sharing.domain.Share;
 import com.dokiments.sharing.domain.ShareLedgerEntry;
@@ -155,6 +156,38 @@ class FirestoreSharedDocuments implements SharedDocumentStore {
                                 FieldPath.of(SharedDocumentFields.VIEWS, viewer.uid()),
                                 SharedDocumentFields.of(view)));
             }
+            return Boolean.TRUE;
+        });
+    }
+
+    @Override
+    public void recordEmail(String sharedDocumentId, String email, Instant sentAt) {
+        var copy = shared().document(sharedDocumentId);
+        inTransaction(ShareRaceException::new, transaction -> {
+            DocumentSnapshot stored = transaction.get(copy).get();
+            if (stored.exists()) {
+                SharedDocumentFields.toDocument(stored)
+                        .withEmailSent(email, sentAt)
+                        .ifPresent(noted -> transaction.update(copy, SharedDocumentFields.recipientsOnly(noted)));
+            }
+            return Boolean.TRUE;
+        });
+    }
+
+    @Override
+    public boolean acceptInvite(Invite invite, Viewer viewer, Instant now) {
+        var copy = shared().document(invite.sharedDocumentId());
+        return inTransaction(ShareRaceException::new, transaction -> {
+            DocumentSnapshot stored = transaction.get(copy).get();
+            if (!stored.exists()) {
+                return Boolean.FALSE;
+            }
+            var document = SharedDocumentFields.toDocument(stored);
+            if (!document.acceptsInvite(invite, viewer, now)) {
+                return Boolean.FALSE;
+            }
+            transaction.update(
+                    copy, SharedDocumentFields.inviteAcceptance(document.withRecipientUid(viewer), invite.tokenHash()));
             return Boolean.TRUE;
         });
     }

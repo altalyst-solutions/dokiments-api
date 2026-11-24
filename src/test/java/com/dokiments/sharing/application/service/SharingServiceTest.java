@@ -11,6 +11,7 @@ import com.dokiments.shared.error.UpstreamUnavailableException;
 import com.dokiments.sharing.application.port.out.SharedDocumentStore;
 import com.dokiments.sharing.domain.DocumentSigned;
 import com.dokiments.sharing.domain.InvalidShareException;
+import com.dokiments.sharing.domain.Invite;
 import com.dokiments.sharing.domain.NotRecipientException;
 import com.dokiments.sharing.domain.Recipient;
 import com.dokiments.sharing.domain.RecipientStatus;
@@ -51,6 +52,7 @@ class SharingServiceTest {
     private final List<Viewer> queriedBy = new ArrayList<>();
     private final List<Viewer> noted = new ArrayList<>();
     private final List<Object> published = new ArrayList<>();
+    private final InMemoryInvites invites = new InMemoryInvites();
     private final Map<String, SharedDocument> copies = new HashMap<>();
     private boolean notingFails;
     private final Map<String, OwnedDocument> documentsById = Map.of(
@@ -215,7 +217,8 @@ class SharingServiceTest {
                 new FreeProfiles(),
                 new DokimentsProperties(new DokimentsProperties.Features(enabled, true)),
                 Clock.fixed(NOW, ZoneOffset.UTC),
-                published::add);
+                published::add,
+                invites);
     }
 
     private static SharedDocument copy(String id, Instant updatedAt) {
@@ -303,6 +306,16 @@ class SharingServiceTest {
                 throw new NotRecipientException();
             }
             return stored.signedBy(signer, value, now);
+        }
+
+        @Override
+        public void recordEmail(String sharedDocumentId, String email, Instant sentAt) {
+            throw new UnsupportedOperationException();
+        }
+
+        @Override
+        public boolean acceptInvite(Invite invite, Viewer viewer, Instant now) {
+            throw new UnsupportedOperationException();
         }
 
         @Override

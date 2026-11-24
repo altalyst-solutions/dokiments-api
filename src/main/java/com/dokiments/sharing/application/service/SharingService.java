@@ -6,8 +6,10 @@ import com.dokiments.shared.DocumentIds;
 import com.dokiments.shared.SignedInUser;
 import com.dokiments.shared.error.NotFoundException;
 import com.dokiments.sharing.application.port.in.ManageShares;
+import com.dokiments.sharing.application.port.out.InviteStore;
 import com.dokiments.sharing.application.port.out.SharedDocumentStore;
 import com.dokiments.sharing.application.port.out.SharedDocumentStore.ShareRequest;
+import com.dokiments.sharing.domain.DocumentShared;
 import com.dokiments.sharing.domain.DocumentSigned;
 import com.dokiments.sharing.domain.InvalidShareException;
 import com.dokiments.sharing.domain.NotRecipientException;
@@ -47,6 +49,7 @@ class SharingService implements ManageShares {
     private final boolean enabled;
     private final Clock clock;
     private final ApplicationEventPublisher events;
+    private final InviteStore invites;
 
     SharingService(
             SharedDocumentStore store,
@@ -54,13 +57,15 @@ class SharingService implements ManageShares {
             UserProfiles profiles,
             DokimentsProperties properties,
             Clock clock,
-            ApplicationEventPublisher events) {
+            ApplicationEventPublisher events,
+            InviteStore invites) {
         this.store = store;
         this.documents = documents;
         this.profiles = profiles;
         this.enabled = properties.features().documentSharing();
         this.clock = clock;
         this.events = events;
+        this.invites = invites;
     }
 
     @Override
@@ -73,8 +78,22 @@ class SharingService implements ManageShares {
         var source =
                 documents.find(owner.uid(), documentId).orElseThrow(() -> new NotFoundException(DOCUMENT_NOT_FOUND));
         var limit = SharePolicy.limitFor(profiles.roleOf(owner.uid()));
-        return store.share(
-                new ShareRequest(source, owner.uid(), owner.email(), owner.displayName(), recipient, limit, now()));
+        var now = now();
+        var share = store.share(
+                new ShareRequest(source, owner.uid(), owner.email(), owner.displayName(), recipient, limit, now));
+        events.publishEvent(new DocumentShared(
+                share.document().id(),
+                owner.uid(),
+                owner.email(),
+                owner.displayName(),
+                share.recipient().email(),
+                source.name(),
+                share.created(),
+                // As the web app decides it for the email: only a template copy with a recipient signature asks to
+                // sign.
+                SharePolicy.isSignable(source.templateSnapshot()),
+                now));
+        return share;
     }
 
     @Override
@@ -137,7 +156,14 @@ class SharingService implements ManageShares {
         if (!DocumentIds.isStorable(sharedDocumentId)) {
             throw new NotFoundException(DOCUMENT_NOT_FOUND);
         }
-        return store.revoke(owner.uid(), sharedDocumentId, now());
+        var revoked = store.revoke(owner.uid(), sharedDocumentId, now());
+        try {
+            // Taking the copy back closes its invitations too; the copy itself refuses them already.
+            invites.deleteAllFor(owner.uid(), sharedDocumentId, null);
+        } catch (RuntimeException e) {
+            log.warn("The invitations of a shared document taken back couldn't be deleted", e);
+        }
+        return revoked;
     }
 
     private SharedDocument find(String sharedDocumentId) {
