@@ -100,9 +100,14 @@ springdoc:
 server:
   port: ${PORT:8080}
   shutdown: graceful
-  # Behind Next.js and the platform's load balancer: trust X-Forwarded-* so
-  # redirects, cookies and client IPs use the original scheme/host.
-  forward-headers-strategy: framework
+  request:
+    header:
+      forwarded:
+        # Behind Next.js and the platform's load balancer: trust X-Forwarded-* (and the standard Forwarded header),
+        # so redirects, cookies and client IPs use the original scheme and host. Set explicitly because Spring Boot
+        # only turns this on by itself on platforms it recognises, and Cloud Run isn't one. "framework" uses Spring's
+        # ForwardedHeaderFilter, the same on every servlet container.
+        strategy: framework
 
 management:
   # Traces and metrics are exported with OTLP to a collector, configured with the standard
