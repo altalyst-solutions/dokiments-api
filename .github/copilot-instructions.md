@@ -9,7 +9,7 @@ directly, and `CLAUDE.md` imports it for Claude Code. Edit this file, not a copy
 documents, clients, document sharing and e-signing). The web app is a separate Next.js project that forwards `/api/*`
 requests to this service.
 
-- Java 25, Spring Boot 4.1 (Spring Framework 7), Gradle with the Kotlin DSL.
+- Java 25, Spring Boot 4.2 (Spring Framework 7), Gradle with the Kotlin DSL.
 - Data lives in **Firestore**, accessed with the Firebase Admin SDK. Users sign in with **Firebase Auth**.
 - Sessions are HttpOnly cookies backed by **Redis** (Spring Session).
 - Runs as a **Docker** image. It must stay portable across container platforms.

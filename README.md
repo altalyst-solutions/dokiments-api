@@ -45,7 +45,7 @@ flowchart LR
 
 | Area | Choice |
 | --- | --- |
-| Language and framework | Java 25, Spring Boot 4.1 (Spring Framework 7), Spring MVC on virtual threads |
+| Language and framework | Java 25, Spring Boot 4.2 (Spring Framework 7), Spring MVC on virtual threads |
 | Build | Gradle (Kotlin DSL) with a version catalog in `gradle/libs.versions.toml` |
 | Data | Firestore, through the Firebase Admin SDK |
 | Authentication | Firebase Auth |
