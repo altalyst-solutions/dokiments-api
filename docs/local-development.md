@@ -349,7 +349,10 @@ docker build -t dokiments-api .
 ```
 
 The image runs as a non-root user with the `prod` profile and sizes the JVM heap from the container's memory limit.
-The jar is split into layers, so a code change only rebuilds the small application layer.
+The jar is split into layers, so a code change only rebuilds the small application layer. While building, the
+Gradle distribution and every dependency are downloaded in a layer of their own (`./gradlew downloadDependencies`),
+before the code is copied in: Docker reuses it until the build definition changes, so rebuilding after a code change
+only compiles.
 
 On a network with a TLS-inspecting proxy, the build can't download dependencies until it trusts the proxy's root
 certificate. Pass it as a build secret; it is only used during the build and isn't stored in the image:

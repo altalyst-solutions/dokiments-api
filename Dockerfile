@@ -21,30 +21,39 @@
 FROM eclipse-temurin:25.0.5_8-jdk-noble AS build
 WORKDIR /workspace
 
-# Gradle wrapper and build scripts first: this layer, and the dependency cache below,
-# are reused until the build definition changes.
+# Runs a command with the optional `extra_ca` secret (a proxy's root certificate) added to a throwaway truststore.
+# The certificate is only ever read from the secret mount, so it never ends up in an image layer.
+COPY --chmod=755 <<'EOF' /usr/local/bin/with-extra-ca
+#!/bin/sh
+set -eu
+if [ -s /run/secrets/extra_ca ]; then
+    cp "$JAVA_HOME/lib/security/cacerts" /tmp/truststore
+    keytool -importcert -noprompt -alias extra-ca -file /run/secrets/extra_ca \
+        -keystore /tmp/truststore -storepass changeit >/dev/null
+    export JAVA_TOOL_OPTIONS="-Djavax.net.ssl.trustStore=/tmp/truststore -Djavax.net.ssl.trustStorePassword=changeit"
+fi
+exec "$@"
+EOF
+
+# The build definition first, and the Gradle distribution and every dependency downloaded from it alone, in a layer of
+# their own. That layer is reused, by a local build and by CI's build cache alike, until the build definition changes,
+# so a change to the code only compiles it.
 COPY gradlew settings.gradle.kts build.gradle.kts gradle.properties ./
 COPY gradle ./gradle
+RUN --mount=type=secret,id=extra_ca,required=false \
+    with-extra-ca ./gradlew downloadDependencies --no-daemon --no-configuration-cache --console=plain
+
 COPY src/main ./src/main
 
 ARG APP_VERSION=""
 ARG GIT_COMMIT=""
 
-# The Gradle cache mount keeps downloaded dependencies between builds on the same machine.
-# The optional `extra_ca` secret is added to a throwaway truststore used by this step only.
-# Tests don't run here: CI runs them before building the image.
-RUN --mount=type=cache,target=/root/.gradle \
-    --mount=type=secret,id=extra_ca,required=false \
-    set -eu; \
-    if [ -s /run/secrets/extra_ca ]; then \
-        cp "$JAVA_HOME/lib/security/cacerts" /tmp/truststore; \
-        keytool -importcert -noprompt -alias extra-ca -file /run/secrets/extra_ca \
-            -keystore /tmp/truststore -storepass changeit >/dev/null; \
-        export JAVA_TOOL_OPTIONS="-Djavax.net.ssl.trustStore=/tmp/truststore -Djavax.net.ssl.trustStorePassword=changeit"; \
-    fi; \
-    ./gradlew bootJar --no-daemon --no-configuration-cache --console=plain \
-        -PappVersion="${APP_VERSION}" -PgitCommit="${GIT_COMMIT}"; \
-    cp build/libs/dokiments-api-*.jar /workspace/app.jar
+# Tests don't run here: CI runs them alongside building the image. Everything needed is in the layer above, so this
+# step doesn't download anything.
+RUN --mount=type=secret,id=extra_ca,required=false \
+    with-extra-ca ./gradlew bootJar --no-daemon --no-configuration-cache --console=plain \
+        -PappVersion="${APP_VERSION}" -PgitCommit="${GIT_COMMIT}" \
+    && cp build/libs/dokiments-api-*.jar /workspace/app.jar
 
 # Split the jar into layers ordered from least to most frequently changing (dependencies,
 # loader, snapshot dependencies, application), so a code change only rebuilds and
