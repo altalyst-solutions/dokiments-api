@@ -76,8 +76,6 @@ jobs:
   build:
     name: Build and test
     runs-on: ubuntu-latest
-    outputs:
-      version: ${{ steps.version.outputs.version }}
     steps:
       - name: Checkout
         uses: actions/checkout@v7
@@ -96,15 +94,31 @@ jobs:
       - name: Set up Gradle
         uses: gradle/actions/setup-gradle@v6
 
+      # The integration tests run the Firebase emulators' image from docker/firebase-emulators.
+      # Building it here, with GitHub's Docker cache, reuses its layers between runs, which
+      # Gradle's own plain `docker build` can't; the Build step below then skips that task
+      # (FIREBASE_EMULATORS_IMAGE_BUILT). `load` puts the image in the runner's Docker, under
+      # the tag the tests use.
+      - name: Set up Docker Buildx
+        uses: docker/setup-buildx-action@v4
+
+      - name: Build the Firebase emulators image
+        uses: docker/build-push-action@v7
+        with:
+          context: docker/firebase-emulators
+          push: false
+          load: true
+          tags: dokiments-firebase-emulators:local
+          cache-from: type=gha,scope=firebase-emulators
+          cache-to: type=gha,scope=firebase-emulators,mode=max
+
       # Formatting, Error Prone and NullAway, unit and architecture tests, integration
       # tests against real Redis and Firestore emulator containers, and coverage. Docker
       # is available on GitHub's Ubuntu runners, which Testcontainers needs.
       - name: Build
+        env:
+          FIREBASE_EMULATORS_IMAGE_BUILT: "true"
         run: ./gradlew build --console=plain
-
-      - name: Work out the version
-        id: version
-        run: echo "version=$(./gradlew -q printVersion)" >> "$GITHUB_OUTPUT"
 
       # Kept for a week, so a failure can be investigated from the run's summary page.
       - name: Upload test and coverage reports
@@ -118,13 +132,27 @@ jobs:
           retention-days: 7
           if-no-files-found: ignore
 
+  # Runs alongside the build rather than after it, so a run takes as long as the slower of
+  # the two instead of both together. The image doesn't need anything the build makes: it
+  # compiles the code itself. Both have to pass before a pull request can be merged.
   docker:
     name: Docker image
-    needs: build
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v7
+        with:
+          # The version comes from Git tags (`git describe`), which a shallow clone lacks.
+          fetch-depth: 0
+
+      # The same command Gradle works the version out with (versionFromGit in
+      # build.gradle.kts), so the image is labelled as the build would label it.
+      - name: Work out the version
+        id: version
+        run: |
+          version="$(git describe --tags --match 'v[0-9]*' --dirty 2>/dev/null || true)"
+          version="${version#v}"
+          echo "version=${version:-0.0.0-SNAPSHOT}" >> "$GITHUB_OUTPUT"
 
       - name: Set up Docker Buildx
         uses: docker/setup-buildx-action@v4
@@ -137,7 +165,9 @@ jobs:
 
       # Builds the image to prove the Dockerfile still works. Nothing is pushed yet:
       # publishing and deploying are added together with the hosting setup. The GitHub
-      # Actions cache keeps unchanged layers, such as the dependencies, between runs.
+      # Actions cache keeps unchanged layers between runs, the dependencies above all: the
+      # Dockerfile downloads them in a layer of their own, which stays until the build
+      # definition changes.
       # `load` keeps the image in the runner's Docker so the next step can scan it.
       - name: Build image
         uses: docker/build-push-action@v7
@@ -147,11 +177,13 @@ jobs:
           load: true
           tags: dokiments-api:ci
           build-args: |
-            APP_VERSION=${{ needs.build.outputs.version }}
+            APP_VERSION=${{ steps.version.outputs.version }}
             GIT_COMMIT=${{ github.sha }}
             SECURITY_UPDATES_DATE=${{ steps.date.outputs.today }}
-          cache-from: type=gha
-          cache-to: type=gha,mode=max
+          # A scope of its own, shared with security-scan.yml, so the emulators' image
+          # (cached by the build job) and this one never replace each other's cache.
+          cache-from: type=gha,scope=dokiments-api
+          cache-to: type=gha,scope=dokiments-api,mode=max
 
       # Trivy downloads its vulnerability database on every run. Caching it per day avoids
       # downloading it again in every job and makes rate limits on the download unlikely.
