@@ -10,7 +10,8 @@ import org.springframework.stereotype.Component;
 
 /**
  * Reacts to what happened to a shared copy. Each listener runs on its own thread, so the request that caused the event
- * answers without waiting for what follows, and what follows can't fail it.
+ * answers without waiting for what follows, and what follows can't fail it. With {@code ASYNC_INLINE=true} they run
+ * before the request answers instead (see {@code platform.async.AsyncConfiguration}); they still can't fail it.
  */
 @Component
 class SharingEventListener {

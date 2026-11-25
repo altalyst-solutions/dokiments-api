@@ -34,6 +34,19 @@ class DokimentsPropertiesTest {
     }
 
     @Test
+    void asyncListenersRunOnTheirOwnThreadUnlessSetToRunInline() {
+        contextRunner.run(context -> assertThat(
+                        context.getBean(DokimentsProperties.class).async().inline())
+                .isFalse());
+        contextRunner
+                .withPropertyValues("dokiments.async.inline=true")
+                .run(context -> assertThat(context.getBean(DokimentsProperties.class)
+                                .async()
+                                .inline())
+                        .isTrue());
+    }
+
+    @Test
     void aValueThatIsNotABooleanStopsTheApplicationFromStarting() {
         contextRunner
                 .withPropertyValues("dokiments.features.document-sharing=yes please")

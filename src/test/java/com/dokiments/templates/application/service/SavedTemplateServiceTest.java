@@ -138,7 +138,8 @@ class SavedTemplateServiceTest {
                 library,
                 catalog,
                 new FakeProfiles(),
-                new DokimentsProperties(new DokimentsProperties.Features(false, tierLocks)),
+                new DokimentsProperties(
+                        new DokimentsProperties.Features(false, tierLocks), new DokimentsProperties.Async(false)),
                 Clock.fixed(NOW, ZoneOffset.UTC));
     }
 

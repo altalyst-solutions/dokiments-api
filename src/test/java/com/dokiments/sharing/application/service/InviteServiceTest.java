@@ -110,7 +110,8 @@ class InviteServiceTest {
         return new InviteService(
                 invites,
                 copies,
-                new DokimentsProperties(new DokimentsProperties.Features(enabled, true)),
+                new DokimentsProperties(
+                        new DokimentsProperties.Features(enabled, true), new DokimentsProperties.Async(false)),
                 Clock.fixed(now, ZoneOffset.UTC));
     }
 
