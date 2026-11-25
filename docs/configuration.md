@@ -27,6 +27,7 @@ All configuration comes from environment variables, so the same image runs on an
 | `SPRING_PROFILES_ACTIVE` | No | `prod` in the Docker image, `dev` for `bootRun`. |
 | `DOCUMENT_SHARING_ENABLED` | No | `true` turns on sharing documents for signature. Off by default; while off, the sharing endpoints answer `404`. |
 | `TIER_LOCKS_ENABLED` | No | `false` lets every plan use every template. On by default. The limit on how many templates a free account may save applies either way. |
+| `ASYNC_INLINE` | No | `true` runs `@Async` listeners (the emails after sharing and signing) on the request's thread, before it answers, instead of on a thread of their own afterwards. For platforms that only give an instance CPU while it answers a request, such as Cloud Run with request-based billing, where work left running after the answer stalls. Those requests then wait for the email. Off by default. |
 
 ## Profiles
 
@@ -192,6 +193,7 @@ set as a real environment variable, such as `PORT=8090 ./gradlew bootRun`, still
 | `SITE_URL` | `http://localhost:3000` | The web app, for links in emails |
 | `EMAIL_ALLOW_LIST` | not set | The only addresses that receive email locally (see [Email](#email)) |
 | `GOOGLE_CLIENT_ID` | not set | The OAuth client for Google sign-in locally; its secret goes in your shell (see [Google sign-in](#google-sign-in)) |
+| `ASYNC_INLINE` | `false` | `true` sends the emails after sharing and signing before answering, as on Cloud Run |
 | `JAEGER_UI_PORT` | `16686` | Host port of the Jaeger trace viewer |
 | `OTLP_PORT` | `4318` | Host port Jaeger receives traces on |
 

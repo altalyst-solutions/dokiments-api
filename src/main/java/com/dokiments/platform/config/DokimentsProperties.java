@@ -12,9 +12,11 @@ import org.springframework.boot.context.properties.bind.DefaultValue;
  * default is also set.
  *
  * @param features switches that turn whole features on or off
+ * @param async how {@code @Async} listeners run
  */
 @ConfigurationProperties("dokiments")
-public record DokimentsProperties(@DefaultValue Features features) {
+public record DokimentsProperties(
+        @DefaultValue Features features, @DefaultValue Async async) {
 
     /**
      * Feature switches. They match the web app's flags of the same purpose, so both sides can be switched together.
@@ -27,4 +29,12 @@ public record DokimentsProperties(@DefaultValue Features features) {
     public record Features(
             @DefaultValue("false") boolean documentSharing,
             @DefaultValue("true") boolean tierLocks) {}
+
+    /**
+     * How {@code @Async} listeners run (see {@code platform.async.AsyncConfiguration}).
+     *
+     * @param inline whether they run on the caller's thread, before the request answers, instead of on a thread of
+     *     their own. For platforms that only give an instance CPU while it answers a request.
+     */
+    public record Async(@DefaultValue("false") boolean inline) {}
 }

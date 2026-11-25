@@ -215,7 +215,8 @@ class SharingServiceTest {
                 new FakeStore(),
                 documents,
                 new FreeProfiles(),
-                new DokimentsProperties(new DokimentsProperties.Features(enabled, true)),
+                new DokimentsProperties(
+                        new DokimentsProperties.Features(enabled, true), new DokimentsProperties.Async(false)),
                 Clock.fixed(NOW, ZoneOffset.UTC),
                 published::add,
                 invites);

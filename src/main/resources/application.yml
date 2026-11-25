@@ -52,6 +52,12 @@ dokiments:
     # Which templates each plan may use. On unless TIER_LOCKS_ENABLED=false, which lets every plan use every
     # template; the limit on how many a free account may save applies either way.
     tier-locks: ${TIER_LOCKS_ENABLED:true}
+  async:
+    # Whether @Async listeners (the emails after sharing and signing) run before the request answers instead of
+    # after it, on a thread of their own. Off unless ASYNC_INLINE=true. Turn it on where an instance only gets CPU
+    # while it answers a request, such as Cloud Run with request-based billing: work left running after the answer
+    # would stall there. The price is that those requests wait for the email to be sent.
+    inline: ${ASYNC_INLINE:false}
   # Which Firebase Auth to use (see com.dokiments.auth.adapter.out.firebase.FirebaseAuthProperties).
   # The Web API key is required: deployed, sign-in goes to the real Firebase Auth. Locally and in tests,
   # FIREBASE_AUTH_EMULATOR_HOST points at the Auth emulator instead.
