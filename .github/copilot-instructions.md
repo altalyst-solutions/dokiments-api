@@ -237,6 +237,10 @@ Rules, enforced by `HexagonalArchitectureTest` (ArchUnit) and `ModularityTest` (
   marked `@Async` (so the request doesn't wait for the email) and calls a use case, which sends through an outbound
   port, because adapters never call each other. `sharing` (`DocumentSigned`) is the reference. Its integration test
   replaces `EmailSender` with `@MockitoBean` and verifies with a timeout, because the email goes after the answer.
+- With `ASYNC_INLINE=true` (`platform.async.AsyncConfiguration`, for Cloud Run's request-based billing), `@Async`
+  listeners run on the request's thread before it answers. So publish an event only once what it reports is saved,
+  never inside a Firestore transaction, which can be retried. What a listener throws is logged by Spring's async
+  support in both modes, never passed to the request.
 - Each email has two templates in `src/main/resources/email/`, `<name>.html` and `<name>.txt`, built on `layout.html`
   and `footer.txt`. Keep to what mail clients support: tables for layout, inline styles only, absolute links, no SVG.
   Comments in templates use `<!--/* ... */-->`, so they are removed instead of being sent.

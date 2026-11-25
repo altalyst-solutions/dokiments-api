@@ -113,7 +113,10 @@ The `clients` module is the reference for endpoints that work on the signed-in u
 - A use case announces what happened with a domain event published through Spring's `ApplicationEventPublisher`
   (`sharing.domain.DocumentSigned`). A listener in `adapter.in` marked `@Async` (enabled in `platform.async`, on virtual
   threads) calls a use case, which sends the email through an outbound port, so the request never waits for the email
-  or fails because of it.
+  or fails because of it. Where the platform only gives CPU while a request is being answered, `ASYNC_INLINE=true` runs
+  such listeners on the request's thread instead (see [Configuration](configuration.md)): the request then waits for
+  them, but still can't fail because of them. Publish an event only once what it reports is saved, never inside a
+  Firestore transaction, because an inline listener runs at that moment, and a transaction can be retried.
 - When an answer depends on the user's plan, the use case asks `users.UserProfiles.roleOf(uid)`. That reads the role
   as stored now, so an upgrade counts straight away rather than at the next sign-in (`templates` does this).
 - A rule that must hold across several documents, such as a free account's limit of saved templates, is checked and
