@@ -24,6 +24,8 @@ import org.springframework.beans.factory.annotation.Autowired;
 import org.springframework.boot.webmvc.test.autoconfigure.AutoConfigureMockMvc;
 import org.springframework.boot.webmvc.test.autoconfigure.WebMvcTest;
 import org.springframework.context.annotation.Import;
+import org.springframework.dao.QueryTimeoutException;
+import org.springframework.data.redis.RedisConnectionFailureException;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.MediaType;
 import org.springframework.test.web.servlet.assertj.MockMvcTester;
@@ -61,6 +63,8 @@ class ApiExceptionHandlerTest {
         "gone, 410, This invitation has expired.",
         "upstream-unavailable, 503, Couldn't reach an external service. Please try again in a moment.",
         "upstream-io, 503, Couldn't reach an external service. Please try again in a moment.",
+        "redis-unavailable, 503, Couldn't reach an external service. Please try again in a moment.",
+        "redis-timeout, 503, Couldn't reach an external service. Please try again in a moment.",
         "too-many, 429, Too many attempts. Please try again later.",
     })
     void applicationExceptionsKeepTheirMessageAndGetTheirStatus(String path, int status, String message) {
@@ -264,6 +268,8 @@ class ApiExceptionHandlerTest {
                             return "REAUTH_REQUIRED";
                         }
                     };
+                case "redis-unavailable" -> new RedisConnectionFailureException("Unable to connect to Redis");
+                case "redis-timeout" -> new QueryTimeoutException("Redis command timed out");
                 case "upstream-io" ->
                     new ResourceAccessException("I/O error on GET request for \"https://x.test?key=k\"");
                 default -> new IllegalStateException("internal detail that must not reach the client");

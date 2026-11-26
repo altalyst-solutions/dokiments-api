@@ -10,6 +10,7 @@ import com.dokiments.auth.domain.ReturnPath;
 import com.dokiments.users.AuthProvider;
 import com.dokiments.users.UserProfiles;
 import java.time.Clock;
+import java.util.Optional;
 import java.util.UUID;
 import org.jspecify.annotations.Nullable;
 import org.springframework.stereotype.Service;
@@ -46,14 +47,24 @@ class GoogleSignInService implements SignInWithGoogle {
         }
         // Random and single-use; UUID.randomUUID draws from a cryptographically strong source.
         String state = UUID.randomUUID().toString();
-        pending.save(state, new PendingSignIn(ReturnPath.of(next), promoCode(promoCode)));
+        try {
+            pending.save(state, new PendingSignIn(ReturnPath.of(next), promoCode(promoCode)));
+        } catch (RuntimeException e) {
+            // Without the pending sign-in, the callback couldn't be matched: the browser goes back to the sign-in page.
+            throw new Failed("The pending sign-in couldn't be stored", e);
+        }
         return new Started(google.authorizationUrl(state), state);
     }
 
     @Override
     public Finished finish(String state, String code) {
-        PendingSignIn signIn =
-                pending.take(state).orElseThrow(() -> new Failed("Unknown, expired or used sign-in state", null));
+        Optional<PendingSignIn> taken;
+        try {
+            taken = pending.take(state);
+        } catch (RuntimeException e) {
+            throw new Failed("The pending sign-in couldn't be read", e);
+        }
+        PendingSignIn signIn = taken.orElseThrow(() -> new Failed("Unknown, expired or used sign-in state", null));
         try {
             String googleIdToken = google.exchangeCode(code);
             var account = identityProvider.signInWithGoogle(googleIdToken);

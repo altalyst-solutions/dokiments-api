@@ -279,7 +279,8 @@ Rules, enforced by `HexagonalArchitectureTest` (ArchUnit) and `ModularityTest` (
 - The request cache is disabled on purpose. Re-enabling it creates a Redis session for every rejected anonymous
   request.
 - Error responses must never include stack traces, exception names or internal messages.
-- Upstream outages (Firebase, Google, Resend unreachable) answer `503`, never `401`.
+- Upstream outages (Firebase, Google, Resend or Redis unreachable) answer `503`, never `401`. For Redis that is done
+  by `platform.web.RedisOutageFilter` and `ApiExceptionHandler`, which recognise its failures with `RedisOutage`.
 
 ## Configuration and profiles
 

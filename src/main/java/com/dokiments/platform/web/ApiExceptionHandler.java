@@ -11,6 +11,10 @@ import com.dokiments.shared.error.UnauthenticatedException;
 import com.dokiments.shared.error.UpstreamUnavailableException;
 import org.slf4j.Logger;
 import org.slf4j.LoggerFactory;
+import org.springframework.dao.DataAccessException;
+import org.springframework.dao.QueryTimeoutException;
+import org.springframework.data.redis.RedisConnectionFailureException;
+import org.springframework.data.redis.RedisSystemException;
 import org.springframework.http.HttpHeaders;
 import org.springframework.http.HttpStatus;
 import org.springframework.http.ResponseEntity;
@@ -154,6 +158,17 @@ class ApiExceptionHandler {
     @ExceptionHandler(ResourceAccessException.class)
     ResponseEntity<ErrorBody> handleUpstreamIoFailure(ResourceAccessException exception) {
         log.warn("Call to an external service failed", exception.getCause());
+        return respond(HttpStatus.SERVICE_UNAVAILABLE, UpstreamUnavailableException.DEFAULT_MESSAGE);
+    }
+
+    /**
+     * Redis couldn't be used by the code of a controller (see {@link RedisOutage}). Answered like any service that
+     * can't be reached. Failures while reading or writing the session happen outside controllers and are answered by
+     * {@link RedisOutageFilter}.
+     */
+    @ExceptionHandler({RedisConnectionFailureException.class, QueryTimeoutException.class, RedisSystemException.class})
+    ResponseEntity<ErrorBody> handleRedisOutage(DataAccessException exception) {
+        log.warn("Redis couldn't be used", exception);
         return respond(HttpStatus.SERVICE_UNAVAILABLE, UpstreamUnavailableException.DEFAULT_MESSAGE);
     }
 

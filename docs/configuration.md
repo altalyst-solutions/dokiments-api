@@ -132,6 +132,11 @@ refreshing the Firebase ID token (about hourly, just before it runs out) never e
 or whose refresh Firebase refuses, is signed out, and the next request answers `401`. When Firebase can't be reached
 during a refresh, the request answers `503` and the session is kept.
 
+When Redis doesn't answer within 2 seconds (3 to connect), the request answers `503`, like any external service that
+can't be reached, instead of waiting: every request with a session cookie reads Redis. So does a hosted Redis that
+refuses commands, for example past its plan's monthly limit. The Google sign-in routes redirect to
+`/sign-in?error=google_failed` instead, as for any failure there (`platform.web.RedisOutage`).
+
 ### Google sign-in
 
 Signing in with Google takes two requests from the browser, both plain page loads rather than calls from JavaScript:
