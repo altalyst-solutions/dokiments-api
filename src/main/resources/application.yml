@@ -24,6 +24,11 @@ spring:
     redis:
       # Required. Any Redis provider, e.g. redis://user:pass@host:6379 or rediss:// for TLS.
       url: ${REDIS_URL}
+      # Without these, a command waits up to a minute for an unresponsive Redis, and every signed-in request with it.
+      # A hosted Redis in the same region answers in milliseconds, so these only end requests that would fail anyway,
+      # which are then answered with 503 (see platform.web.RedisOutage).
+      timeout: 2s
+      connect-timeout: 3s
   session:
     # A session is kept in Redis for up to a day after it was last used. It ends one day after sign-in
     # anyway (see auth.domain.AuthSession), however often it is used.

@@ -27,15 +27,24 @@ class GoogleSignInServiceTest {
     private static final Instant NOW = Instant.parse("2026-11-13T09:00:00Z");
 
     private final Map<String, PendingSignIn> pending = new HashMap<>();
+    private boolean storeUnavailable;
     private final PendingSignIns store = new PendingSignIns() {
         @Override
         public void save(String state, PendingSignIn signIn) {
+            failIfUnavailable();
             pending.put(state, signIn);
         }
 
         @Override
         public Optional<PendingSignIn> take(String state) {
+            failIfUnavailable();
             return Optional.ofNullable(pending.remove(state));
+        }
+
+        private void failIfUnavailable() {
+            if (storeUnavailable) {
+                throw new IllegalStateException("the store couldn't be reached");
+            }
         }
     };
     private boolean configured = true;
@@ -82,6 +91,25 @@ class GoogleSignInServiceTest {
         assertThat(service.finish(withCode.state(), "a").promoCode()).isEqualTo("ViSHDOK2026!");
         assertThat(service.finish(longCode.state(), "b").promoCode()).hasSize(64);
         assertThat(service.finish(emptyCode.state(), "c").promoCode()).isNull();
+    }
+
+    @Test
+    void aStartFailsAsASignInFailureWhenThePendingSignInCantBeStored() {
+        storeUnavailable = true;
+
+        assertThatThrownBy(() -> service.start(null, null))
+                .isInstanceOf(SignInWithGoogle.Failed.class)
+                .hasRootCauseMessage("the store couldn't be reached");
+    }
+
+    @Test
+    void aFinishFailsAsASignInFailureWhenThePendingSignInCantBeRead() {
+        var started = service.start(null, null);
+        storeUnavailable = true;
+
+        assertThatThrownBy(() -> service.finish(started.state(), "the-code"))
+                .isInstanceOf(SignInWithGoogle.Failed.class)
+                .hasRootCauseMessage("the store couldn't be reached");
     }
 
     @Test
