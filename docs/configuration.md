@@ -1,7 +1,8 @@
 # Configuration
 
-All configuration comes from environment variables, so the same image runs on any container platform. Locally, a
-`.env` file covers what you'd want to change (see [Local settings](#local-settings)).
+All configuration comes from environment variables, so the same image runs on any container platform. Secrets can
+come from a mounted file instead (see [Secrets in a file](#secrets-in-a-file)). Locally, a `.env` file covers what
+you'd want to change (see [Local settings](#local-settings)).
 
 ## Environment variables
 
@@ -25,9 +26,30 @@ All configuration comes from environment variables, so the same image runs on an
 | `OTEL_METRICS_EXPORTER` | No | `otlp` to export metrics too. Off by default. |
 | `OTEL_TRACES_SAMPLER_ARG` | No | Share of requests whose trace is kept, from `0` to `1`. Defaults to `0.1`, and `1` in `dev`. |
 | `SPRING_PROFILES_ACTIVE` | No | `prod` in the Docker image, `dev` for `bootRun`. |
+| `SPRING_CONFIG_IMPORT` | No | `file:/path/to/file.properties` reads settings from a mounted file, for secrets. See [Secrets in a file](#secrets-in-a-file). |
 | `DOCUMENT_SHARING_ENABLED` | No | `true` turns on sharing documents for signature. Off by default; while off, the sharing endpoints answer `404`. |
 | `TIER_LOCKS_ENABLED` | No | `false` lets every plan use every template. On by default. The limit on how many templates a free account may save applies either way. |
 | `ASYNC_INLINE` | No | `true` runs `@Async` listeners (the emails after sharing and signing) on the request's thread, before it answers, instead of on a thread of their own afterwards. For platforms that only give an instance CPU while it answers a request, such as Cloud Run with request-based billing, where work left running after the answer stalls. Those requests then wait for the email. Off by default. |
+
+### Secrets in a file
+
+Where a platform mounts secrets as a file rather than passing them as variables, put them in a properties file whose
+keys are the variables' names, and point `SPRING_CONFIG_IMPORT` at it:
+
+```properties
+REDIS_URL=rediss://default:<password>@<host>:6379
+FIREBASE_API_KEY=<key>
+GOOGLE_CLIENT_SECRET=<secret>
+RESEND_API_KEY=re_<key>
+```
+
+```bash
+SPRING_CONFIG_IMPORT=file:/secrets/dokiments-api.properties
+```
+
+Spring Boot reads the file at start-up, and each value applies as if its variable were set. With `file:`, a file that
+isn't there stops the application from starting; `optional:file:` would ignore it. A variable that is really set still
+wins over the file. One line per value, without quotes; a backslash must be doubled. `SecretsFileTest` checks this.
 
 ## Profiles
 
@@ -93,6 +115,10 @@ Use the key for staging and local use, never the production one. See [Testing an
 for how emails are tested, and `src/main/resources/email/` for the templates.
 
 ## Observability
+
+Logs are written to standard output, one JSON object per line in Elastic Common Schema (`log.level`, `message`,
+`log.logger` and so on). Each line also has a top-level `severity` (`DEBUG`, `INFO`, `WARNING` or `ERROR`), the field
+Google Cloud Logging reads the level from; other platforms ignore it (`platform.observability.CloudLoggingSeverity`).
 
 Every request gets a trace. Its ID is in every log line written while handling it (`trace.id` in the JSON logs) and
 in the `X-Trace-Id` response header, so a problem someone reports from their browser leads straight to the request's

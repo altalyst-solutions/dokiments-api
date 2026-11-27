@@ -130,7 +130,8 @@ Rules, enforced by `HexagonalArchitectureTest` (ArchUnit) and `ModularityTest` (
 - Log with SLF4J. Never use `System.out`, `System.err` or `java.util.logging`.
 - Never log tokens, passwords, session contents or other secrets.
 - Configuration comes from environment variables, bound with `@ConfigurationProperties` classes. Never hard-code
-  URLs, keys or environment-specific values. Don't use platform-specific SDKs (for example Spring Cloud GCP); the
+  URLs, keys or environment-specific values. Secrets may instead come from a mounted properties file keyed by the
+  variables' names, read with `SPRING_CONFIG_IMPORT` (see "Secrets in a file" in `docs/configuration.md`). Don't use platform-specific SDKs (for example Spring Cloud GCP); the
   service must run on any container platform.
 - Error Prone runs on every compile. Fix its findings rather than suppressing them.
 
