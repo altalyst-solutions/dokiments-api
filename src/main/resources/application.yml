@@ -164,3 +164,5 @@ logging:
         # platforms can link log lines and traces. It is also in the X-Trace-Id response header.
         traceId: trace.id
         spanId: span.id
+      # Adds the top-level severity that Google Cloud Logging reads (see platform.observability.CloudLoggingSeverity).
+      customizer: com.dokiments.platform.observability.CloudLoggingSeverity
